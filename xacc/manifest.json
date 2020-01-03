@@ -1,0 +1,6 @@
+{
+    "bundle.symbolic_name" : "xacc_QuaC_accelerator",
+    "bundle.activator" : true,
+    "bundle.name" : "XACC QuaC Accelerator",
+    "bundle.description" : "This bundle provides a QuaC Accelerator for Pulse simulation."
+  }

@@ -1,4 +1,4 @@
-CFLAGS = -Wuninitialized -g
+CFLAGS = -Wuninitialized -g -fPIC
 
 
 ODIR=obj
@@ -10,13 +10,15 @@ TESTS=$(basename $(notdir $(wildcard $(TESTDIR)/*test*.c)))
 MPI_TESTS=$(addprefix mpi_,$(TESTS))
 CFLAGS += -isystem $(SRCDIR)
 
+LIBQUAC=libQuaC.so
+
 include ${PETSC_DIR}/lib/petsc/conf/variables
 #include ${PETSC_DIR}/lib/petsc/conf/rules
 
-_DEPS = quantum_gates.h dm_utilities.h operators.h solver.h operators_p.h quac.h quac_p.h kron_p.h qasm_parser.h error_correction.h
+_DEPS = quantum_gates.h dm_utilities.h operators.h solver.h operators_p.h quac.h quac_p.h kron_p.h qasm_parser.h error_correction.h interface_xacc_ir.h
 DEPS  = $(patsubst %,$(SRCDIR)/%,$(_DEPS))
 
-_OBJ  = quac.o operators.o solver.o kron.o dm_utilities.o quantum_gates.o error_correction.o qasm_parser.o
+_OBJ  = quac.o operators.o solver.o kron.o dm_utilities.o quantum_gates.o error_correction.o qasm_parser.o interface_xacc_ir.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 _TEST_OBJ  = unity.o timedep_test.o imag_ham.o
@@ -38,6 +40,7 @@ $(ODIR)/%.o: $(TESTDIR)/%.c $(DEPS) $(TEST_DEPS)
 	@${PETSC_COMPILE} -c -o $@ $< $(CFLAGS) ${PETSC_KSP_LIB} ${PETSC_CC_INCLUDES}
 
 all: examples
+shared_lib: ${LIBQUAC}
 
 examples: clean_test $(EXAMPLES)
 
@@ -75,6 +78,10 @@ mpi_test: clean_test $(MPI_TESTS) count_fails
 
 $(EXAMPLES) : % : $(ODIR)/%.o $(OBJ)
 	${CLINKER} -o $@ $^ $(CFLAGS) ${PETSC_KSP_LIB}
+
+${LIBQUAC} : $(OBJ)
+	@echo "Linking shared library: "
+	${CLINKER} -shared -o ${LIBQUAC} $^ $(CFLAGS) ${PETSC_KSP_LIB}
 
 .PHONY: clean
 
