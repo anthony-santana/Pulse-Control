@@ -29,7 +29,7 @@ void PulseChannelController::Initialize(const BackendChannelConfigs& in_backendC
 
 void PulseChannelController::Tick(double in_time) 
 {
-    if (in_time == m_currentTime)
+    if (in_time <= m_currentTime)
     {
         // Nothing to do,
         // e.g. multiple channels query their data at each time step,
@@ -87,8 +87,38 @@ void PulseChannelController::Tick(double in_time)
         }
     }
     
-    // TODO: update frame-change data
-
+    // Update frame-change data
+    {
+        const auto isActivated = [&](const PulseScheduleEntry& in_entry) -> bool {
+            // Current time is within its start and stop and the conditional is satisfied
+            return (in_entry.startTime <= m_currentTime) && (in_entry.stopTime >= m_currentTime) && (in_entry.conditionalFunc(m_context));
+        };
+        
+        for (size_t i = 0; i < m_accumulatedFcPhases.size(); ++i)
+        { 
+            auto fcIter = m_fcSchedules.find(i);
+            if (fcIter != m_fcSchedules.end())
+            {
+               std::vector<FrameChangeCommandEntry>& fcCommandOnChannels = fcIter->second;
+               for (auto it = fcCommandOnChannels.begin(); it != fcCommandOnChannels.end(); ++it)
+               {
+                   if (m_currentTime >= it->startTime)
+                   {
+                       // The FC command is activated (could be conditional)
+                       if (it->conditionalFunc(m_context))
+                       {
+                           // Activated, add the fc phase to the accumulated phase of this channel
+                           m_accumulatedFcPhases[i] += it->phase;
+                       }
+                       // In any cases of the conditional, after the FC command startTime (execution time),
+                       // we discard this command since it has been processed.
+                       fcCommandOnChannels.erase(it);
+                       break;
+                   }
+               }
+            }
+        }
+    }
 }
 
 
@@ -126,8 +156,8 @@ double PulseChannelController::GetPulseValue(int in_channelId, double in_time)
 
         const auto rawPulseData = pulseArray[pulseDataIdx];
 
-        // TODO: we need to determine total FC phase here
-        const double accumulatedFcPhases = 0.0;
+        // Retrieve the current accumulated FC phase of this channel. 
+        const double accumulatedFcPhases = m_accumulatedFcPhases[in_channelId];
         // Determine LO freq
         // TODO: need to map from channel Id to D or U channel,
         // For now, assume just D channels.
@@ -135,7 +165,7 @@ double PulseChannelController::GetPulseValue(int in_channelId, double in_time)
         // Mixing signal
         const auto outputSignal = rawPulseData * std::exp(I*accumulatedFcPhases) * exp(- I * 2.0 * M_PI * loFreq * in_time);
         // Debug
-        std::cout << "D[" << in_channelId << "](" << in_time << ") = "<< outputSignal.real() << " (raw input = " << rawPulseData << ")\n";
+        std::cout << "D[" << in_channelId << "](" << in_time << ") = "<< outputSignal.real() << " (raw input = " << rawPulseData << "; FC phase = " << accumulatedFcPhases << ")\n";
         return outputSignal.real();
     }
 

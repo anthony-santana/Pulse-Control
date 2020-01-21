@@ -119,8 +119,32 @@ namespace QuaC {
          const size_t channelId = 0;
          testPulseSchedule.emplace(channelId, std::vector<PulseScheduleEntry> { testPulseScheduleEntry });
          
+         // FC commands
+         FrameChangeScheduleRegistry fcSchedule;
+         FrameChangeCommandEntry fcEntry1;
+         {
+            // Execute a FC(0.3) at t = 2.0
+            fcEntry1.startTime = 2.0;
+            fcEntry1.phase = 0.3;
+         }
+         FrameChangeCommandEntry fcEntry2;
+         {
+            // Execute a FC(0.2) at t = 3.0
+            fcEntry2.startTime = 3.0;
+            fcEntry2.phase = 0.2;
+         }
+         FrameChangeCommandEntry fcEntry3;
+         {
+            // Execute a FC(-0.5) at t = 5.0
+            // cancel all FC phases up to now.
+            fcEntry3.startTime = 5.0;
+            fcEntry3.phase = -0.5;
+         }
+
+         fcSchedule.emplace(channelId, std::vector<FrameChangeCommandEntry> { fcEntry1, fcEntry2, fcEntry3 });
+         
          // Initialize the controller
-         m_pulseChannelController->Initialize(backendConfig, testPulseSchedule, {});
+         m_pulseChannelController->Initialize(backendConfig, testPulseSchedule, fcSchedule);
       }
 
       XACC_QuaC_InitializePulseSim(buffer->size(), dt, stopTime, stepMax, reinterpret_cast<PulseChannelProvider*>(m_pulseChannelController.get()));
