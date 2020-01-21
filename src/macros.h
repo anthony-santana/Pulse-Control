@@ -10,9 +10,6 @@
         return GetPulseValue(pulseChannelProvider, m_channelId, time);\
     }
 
-#define GET_DRIVE_CHANNEL_FN(channelId) _DriveChannel##channelId
-
-
 #define REGISTER_1_DRIVE_CHANNEL(pulseChannelProvider) REGISTER_DRIVE_CHANNEL(pulseChannelProvider, 0);
 #define REGISTER_2_DRIVE_CHANNELS(pulseChannelProvider) \
     REGISTER_DRIVE_CHANNEL(pulseChannelProvider, 1);\

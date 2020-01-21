@@ -16,15 +16,9 @@ using PulseLib = std::unordered_map<std::string, std::vector<std::complex<double
 // Ref 5.1.1 (channel data only, Hamiltonian/backend device dynamic is not captured here)
 struct BackendChannelConfigs
 {
-    // Number of D channels (i.e. number of qubits)
-    size_t nb_dChannels;
-
     // D channel LO freq.
     // Unit: GHz    
     std::vector<double> loFregs_dChannels;
-    
-    // Number of U channels
-    size_t nb_uChannels;
     
     // U channels LO freqs 
     // Unit: GHz    
@@ -97,10 +91,10 @@ using FrameChangeScheduleRegistry = std::unordered_map<size_t, std::vector<Frame
 class PulseChannelController
 {
 public: 
-    PulseChannelController();
+    PulseChannelController(const BackendChannelConfigs& in_backendConfig);
     
-    // Initialize the pulse controller with backend data and pulse/command schedules 
-    void Initialize(const BackendChannelConfigs& in_backendConfig, const PulseScheduleRegistry& in_pulseSchedule, const FrameChangeScheduleRegistry& in_fcSchedule);
+    // Initialize the pulse controller pulse/command schedules 
+    void Initialize(const PulseScheduleRegistry& in_pulseSchedule, const FrameChangeScheduleRegistry& in_fcSchedule);
 
     // Update the pulse controller with measurement data 
     // so that it can activate/deactivate conditional pulse/command schedules appropriately.
@@ -108,11 +102,15 @@ public:
 
     // This will assert that the PulseChannelController has been initialized.
     double GetPulseValue(int in_channelId, double in_time);
+    // D channel
+    int GetDriveChannelId(int in_dChannelIdx) const;
+    // U channel
+    int GetControlChannelId(int in_uChannelIdx) const;
 
 private:
     // Move the internal tracking time clock (i.e. checking all the pulse schedules w.r.t. the current time)
     void Tick(double in_time);
-
+    double GetLoFreq(int in_channelId) const;
 private:
     bool m_isInitialized;
     PulseControlContext m_context;
@@ -128,4 +126,6 @@ private:
     // Active pulse schedule on the channel
     // This can be null if no pulse is active.
     std::vector<const PulseScheduleEntry*> m_activePulse;
+    // Vector of all LO freqs (D and U channels)
+    std::vector<double> m_loFreqs;
 };

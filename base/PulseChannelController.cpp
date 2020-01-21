@@ -6,25 +6,49 @@ namespace {
     const std::complex<double> I(0.0, 1.0);
 }
 
-PulseChannelController::PulseChannelController():
+PulseChannelController::PulseChannelController(const BackendChannelConfigs& in_backendConfig):
     m_isInitialized(false),
     m_context({}),
     // Just put a negative time to indicate things have not been initialized yet.
-    m_currentTime(-1.0)
-{}
-
-void PulseChannelController::Initialize(const BackendChannelConfigs& in_backendConfig, const PulseScheduleRegistry& in_pulseSchedule, const FrameChangeScheduleRegistry& in_fcSchedule)
-{
+    m_currentTime(-1.0),
     // Just copy configs
-    m_configs = in_backendConfig;
+    m_configs(in_backendConfig)
+{
+    // Allocate data arrays for all channels
+    m_accumulatedFcPhases = std::vector<double>(m_configs.loFregs_dChannels.size() + m_configs.loFregs_uChannels.size(), 0.0);
+    m_activePulse = std::vector<const PulseScheduleEntry*>(m_configs.loFregs_dChannels.size() + m_configs.loFregs_uChannels.size(), nullptr);
+    
+    // Combine the list of LO freqs (D and U channels)
+    m_loFreqs = m_configs.loFregs_dChannels;
+    m_loFreqs.insert(m_loFreqs.end(), m_configs.loFregs_uChannels.begin(), m_configs.loFregs_uChannels.end());
+}
+
+void PulseChannelController::Initialize(const PulseScheduleRegistry& in_pulseSchedule, const FrameChangeScheduleRegistry& in_fcSchedule)
+{
     m_pulseSchedules = in_pulseSchedule;
     m_fcSchedules = in_fcSchedule;
-
-    // TODO: we only do drive channels atm (no U channels yet)
-    m_accumulatedFcPhases = std::vector<double>(m_configs.nb_dChannels, 0.0);
-    m_activePulse = std::vector<const PulseScheduleEntry*>(m_configs.nb_dChannels, nullptr);
     // Move to zero time
     Tick(0.0);
+}
+
+int PulseChannelController::GetDriveChannelId(int in_dChannelIdx) const 
+{
+    assert(in_dChannelIdx < m_configs.loFregs_dChannels.size());
+    // We use a simple global Id scheme: all D channels then U channels 
+    return in_dChannelIdx;
+}
+
+int PulseChannelController::GetControlChannelId(int in_uChannelIdx) const
+{
+    assert(in_uChannelIdx < m_configs.loFregs_uChannels.size());
+    // U channels have their global Id after D channels
+    return in_uChannelIdx + m_configs.loFregs_dChannels.size();
+}
+
+double PulseChannelController::GetLoFreq(int in_channelId) const
+{
+    assert(in_channelId < m_loFreqs.size());
+    return m_loFreqs[in_channelId];
 }
 
 void PulseChannelController::Tick(double in_time) 
@@ -159,9 +183,7 @@ double PulseChannelController::GetPulseValue(int in_channelId, double in_time)
         // Retrieve the current accumulated FC phase of this channel. 
         const double accumulatedFcPhases = m_accumulatedFcPhases[in_channelId];
         // Determine LO freq
-        // TODO: need to map from channel Id to D or U channel,
-        // For now, assume just D channels.
-        const auto loFreq = m_configs.loFregs_dChannels[in_channelId];
+        const auto loFreq = GetLoFreq(in_channelId);
         // Mixing signal
         const auto outputSignal = rawPulseData * std::exp(I*accumulatedFcPhases) * exp(- I * 2.0 * M_PI * loFreq * in_time);
         // Debug

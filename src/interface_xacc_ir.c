@@ -75,24 +75,15 @@ bool g_wasInitialized = false;
 // Generate dummy channel drive functions (signature double(double)) which 
 // just refer to g_PulseDataProvider to get the data.
 // (each function declared here has an implied channel index)
-// Register 2 channels
-REGISTER_N_DRIVE_CHANNELS(g_PulseDataProvider, 2);
+// Register 8 channels
+// Technically, we can register as many channels as we want here 
+// (need to automate the macro expansion util to handle arbitrary number).
+// These are just placeholder functions for calling into the Pulse controller.
 typedef double channelFunctionType(double time);
-// Map from channel name to channel Id
-channelFunctionType* GetChannelFunction(const char* in_channelName)
-{
-    // Simple set-up: 1 qubit with D0 and U0 channels
-    if (strcmp(in_channelName, "D0") == 0)
-    {
-        return GET_DRIVE_CHANNEL_FN(0);
-    }
-    if (strcmp(in_channelName, "U0") == 0)
-    {
-        return GET_DRIVE_CHANNEL_FN(1);
-    }
-
-    return NULL;
-}
+REGISTER_N_DRIVE_CHANNELS(g_PulseDataProvider, 8);
+// ***Temporary code for testing***
+// This should be combined with the above REGISTER_N_DRIVE_CHANNELS macro.
+channelFunctionType *g_channelFnArray[8] = { _DriveChannel0, _DriveChannel1, _DriveChannel2, _DriveChannel3, _DriveChannel4, _DriveChannel5, _DriveChannel6, _DriveChannel7 };
 
 // Time-stepping monitor function
 PetscErrorCode g_tsDefaultMonitorFunc(TS, PetscInt, PetscReal, Vec, void*);
@@ -255,17 +246,12 @@ void XACC_QuaC_AddConstHamiltonianTerm1(const char* in_op, int in_qubitIdx, Comp
 }
 
 
-void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, const char* in_channelName)
+void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, int in_channelId)
 {
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx);
-    channelFunctionType* channelFn = GetChannelFunction(in_channelName);
-    if (channelFn == NULL)
-    {
-        printf("ERROR! Unknown drive channel!\n");
-        return;
-    }
-    add_to_ham_time_dep(channelFn, 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
+    
+    add_to_ham_time_dep(g_channelFnArray[in_channelId], 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
 }
 
 

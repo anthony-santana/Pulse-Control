@@ -89,8 +89,6 @@ namespace QuaC {
       // Qubit decay: just use a very small value
       double kappa = 0.0001;
 
-      // Create a pulse controller
-      m_pulseChannelController = std::make_unique<PulseChannelController>();
       {
          // Initialize the pulse constroller:
          // Note: the data will eventually be loaded from XACC. For now, just use some hard-coded values.
@@ -102,11 +100,12 @@ namespace QuaC {
          BackendChannelConfigs backendConfig;
          {
             backendConfig.dt = 1.0;
-            backendConfig.nb_dChannels = 1;
-            backendConfig.loFregs_dChannels = { nu };
+            backendConfig.loFregs_dChannels = { nu, 2*nu };
             backendConfig.pulseLib = testPulseLib;
          }
-
+         // Create a pulse controller
+         m_pulseChannelController = std::make_unique<PulseChannelController>(backendConfig);
+         
          // Pulse schedule entries
          PulseScheduleEntry testPulseScheduleEntry;
          {
@@ -116,7 +115,9 @@ namespace QuaC {
          }
          
          PulseScheduleRegistry testPulseSchedule;
-         const size_t channelId = 0;
+         
+         const size_t channelId = m_pulseChannelController->GetDriveChannelId(1);
+         
          testPulseSchedule.emplace(channelId, std::vector<PulseScheduleEntry> { testPulseScheduleEntry });
          
          // FC commands
@@ -144,7 +145,7 @@ namespace QuaC {
          fcSchedule.emplace(channelId, std::vector<FrameChangeCommandEntry> { fcEntry1, fcEntry2, fcEntry3 });
          
          // Initialize the controller
-         m_pulseChannelController->Initialize(backendConfig, testPulseSchedule, fcSchedule);
+         m_pulseChannelController->Initialize(testPulseSchedule, fcSchedule);
       }
 
       XACC_QuaC_InitializePulseSim(buffer->size(), dt, stopTime, stepMax, reinterpret_cast<PulseChannelProvider*>(m_pulseChannelController.get()));
@@ -161,7 +162,7 @@ namespace QuaC {
       XACC_QuaC_AddConstHamiltonianTerm1("Z", 0, { -omega/2.0, 0.0});
 
       // Time-dependent term:
-      XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, "D0");
+      XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(1));
 
       XACC_QuaC_AddQubitDecay(0, kappa);
    }
