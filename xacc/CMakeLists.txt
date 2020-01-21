@@ -12,7 +12,7 @@ usFunctionGetResourceSource(TARGET ${LIBRARY_NAME} OUT SRC)
 usFunctionGenerateBundleInit(TARGET ${LIBRARY_NAME} OUT SRC)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
-#add_dependencies(${LIBRARY_NAME} QuaC)
+add_dependencies(${LIBRARY_NAME} base)
 
 set(_bundle_name xacc_quac_accelerator)
 set_target_properties(${LIBRARY_NAME} PROPERTIES
@@ -30,12 +30,15 @@ usFunctionEmbedResources(TARGET ${LIBRARY_NAME}
     manifest.json
     )
 
+message ("XACC_QUAC_BASE_INCLUDE_DIR = ${XACC_QUAC_BASE_INCLUDE_DIR}")
+
 target_include_directories(${LIBRARY_NAME} PUBLIC   . 
                                                     ./Accelerator
-                                                    ${QUAC_INCLUDE_DIRS})
+                                                    ${QUAC_INCLUDE_DIRS}
+                                                    ${XACC_QUAC_BASE_INCLUDE_DIR})
 
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate ${CMAKE_BINARY_DIR}/libQuaC.so)
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate ${CMAKE_BINARY_DIR}/libQuaC.so base)
 set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 
 set_target_properties(${LIBRARY_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")

@@ -26,6 +26,14 @@ typedef struct ComplexCoefficient {
     double imag;
 } ComplexCoefficient;
 
+// Time-stepping data
+typedef struct TSData {
+    double time;
+    int nbPops;
+    double* populations;
+} TSData;
+
+typedef struct XaccPulseChannelProvider PulseChannelProvider;
 
 // Circuit mode initialization:
 // TODO: define more options
@@ -48,7 +56,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_Finalize();
 // Pulse simulation initialization:
 // Note: we *solve* the master equation using QuaC, not via Monte-Carlo method.
 // Hence, we don't need to have the *shots* params.
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, double in_dt, double in_stopTime, int in_stepMax);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, double in_dt, double in_stopTime, int in_stepMax, PulseChannelProvider* in_pulseDataProvider);
 
 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_SetLogVerbosity(log_verbosity in_verboseConfig);
@@ -59,7 +67,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddQubitDecay(int
 
 // Run the Pulse simulation and return the expectation values:
 // Returns the size of the result array. Caller needs to clean up. 
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_RunPulseSim(double** out_result);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_RunPulseSim(double** out_result, int* out_nbSteps, TSData** out_timeSteppingData);
 
 // ====   Hamiltonian construction API's ====
 // Adding a single-operator term to the Hamiltonian:
@@ -71,12 +79,12 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddConstHamiltoni
 // (2) Time-dependent term:
 // Similar to (1) but has a time-dependent drive function (double -> double)
 // Note: drive signal must have been *mixed* with LO, i.e. it is Re[d(t) * exp(-i * w_LO * t)] = d(t) * cos(w_LO * t)
-__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, double (*in_driveFunc)(double));
+__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, const char* in_channelName);
 
 
 // Adding a two-operator term to the Hamiltonian:
 // (1) Time-independent term: 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, ComplexCoefficient in_coeff);
 // (2) Time-dependent term:
-__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, double (*in_driveFunc)(double));
+__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, const char* in_channelName);
 // ======================================================================

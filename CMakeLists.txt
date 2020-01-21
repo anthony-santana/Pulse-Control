@@ -47,6 +47,9 @@ else()
 endif()
 
 set(QUAC_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/src)
+set (XACC_QUAC_BASE_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/base)
+
+add_subdirectory(base)
 
 if (PETSC_DIR)
   add_custom_target (libQuaC ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libQuaC.so)
@@ -57,6 +60,7 @@ if (PETSC_DIR)
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/libQuaC.so ${CMAKE_CURRENT_BINARY_DIR}/libQuaC.so
         COMMAND rm -f ${CMAKE_SOURCE_DIR}/libQuaC.so
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        DEPENDS base
       )
     
     add_subdirectory(xacc)

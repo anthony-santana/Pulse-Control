@@ -1,96 +1,143 @@
 #include "QuaC_Pulse_Visitor.hpp"
 #include "xacc.hpp"
-
+#include <chrono>
+#include <iomanip>
 extern "C" {
 #include "interface_xacc_ir.h"
 }
 
 namespace {
-   double gaussian_scaling;
-   double gaussian_mu;
-   double gaussian_sigma;
-   double omega_lo;
-   class GaussianFunc {
-      public:  
-      static double value(double in_time) 
+   void writeTimesteppingDataToCsv(const std::string& in_fileName, const TSData* const in_tsData, int in_nbSteps)
+   {
+      if (in_nbSteps < 1)
       {
-         TODO(This implementation is not scalable. Need to handle multiple LOs and frame changes. This will involve QuaC changes.)
-         // f(t) = scaling * exp(-(t-mu)^2/(2 * sigma^2)) * cos (omega_LO * t)
-         // (drive pulse mixed with LO)
-         const double result = gaussian_scaling * exp(-pow(in_time - gaussian_mu, 2)/(2.0 * pow(gaussian_sigma, 2))) * cos(omega_lo * in_time);
-         return result;
-      }  
-   };
+         return;
+      }
+
+      const auto stringEndsWith = [](const std::string& in_string, const std::string& in_ending) {
+         if (in_ending.size() > in_string.size()) 
+         {
+            return false;
+         }
+
+         return std::equal(in_ending.rbegin(), in_ending.rend(), in_string.rbegin());   
+      };
+
+      const auto getCurrentTimeString = [](){
+         const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+         std::stringstream ss;
+         ss << std::put_time(std::localtime(&currentTime), "%Y%m%d_%X");
+         return ss.str();
+      };
+
+      std::ofstream outputFile;
+      std::string fileName = stringEndsWith(in_fileName, ".csv") ?  in_fileName.substr(0, in_fileName.size() - 4) : in_fileName;
+      // Add a timestamp to prevent duplicate
+      fileName += "_";
+      fileName += getCurrentTimeString();
+      fileName += ".csv";
+      outputFile.open(fileName, std::ofstream::out);
+
+      if(!outputFile.is_open())
+      {
+         std::cout << "Cannot open CSV file '" << fileName << "' for writing!\n";
+		   return;
+	   }
+
+      const auto nbPopulations = in_tsData[0].nbPops;
+      // Header
+      outputFile << "Time, ";      
+      for(int j = 0; j < nbPopulations; ++j)
+      {
+         outputFile << "Population[" << j << "], ";
+      }
+      outputFile << "\n";
+
+      // Data
+      for (int i = 0; i < in_nbSteps; ++i)
+      {
+         const TSData dataAtStep = in_tsData[i];
+         outputFile << dataAtStep.time << ", ";
+         for(int j = 0; j < nbPopulations; ++j)
+         {
+            outputFile << dataAtStep.populations[j] << ", ";
+         }
+         outputFile << "\n";
+      }
+      outputFile.close();
+      std::cout << "Time-stepping data is written to file '" << fileName << "'\n";
+   }        
 }
 
-// Macro to declare *global* params for the Gaussian pulse function
-#define DECLARE_GAUSSIAN_PULSE(scaling, mu, sigma, omega) {\
-  gaussian_scaling = scaling;\
-  gaussian_mu = mu;\
-  gaussian_sigma = sigma;\
-  omega_lo = omega;\
-}
+// Export the time-stepping data to csv (e.g. for plotting)
+// Uncomment to get the data exported
+// #define EXPORT_TS_DATA_AS_CSV
 
-// Get the Gaussian Pulse function (depends on time only)
-// its params must be declared by DECLARE_GAUSSIAN_PULSE before use.
-// otherwise, it will not be the Gaussian function that you may expect!!!
-#define GAUSSIAN_PULSE_FUNC GaussianFunc::value
 namespace QuaC {
    void PulseVisitor::initialize(std::shared_ptr<AcceleratorBuffer> buffer, const HeterogeneousMap& in_params) 
    {
       // Debug
       std::cout << "Initialize Pulse simulator \n";
-      
-      // Gaussian pulse params
-      double driveSigma = 75;
-      double driveMu = driveSigma*4;
-      
+         
       // Initialize some params for testing
       TODO(Get rid of these default params and enforce that they must be set upstream.)
-      double dt = 0.1;
-      double stopTime = driveSigma*8;
-      int stepMax = 10000;
+      double dt = 0.01;
+      double stopTime = 8.0;
+      int stepMax = 100000000;
       double nu = 5.0;
       double omega = 2 * M_PI * nu;
-      double pulseAmplitude = 1.0;
       // Qubit decay: just use a very small value
-      double kappa = 0.000001;
-      // Get the params from in_params map
-      // TODO: this is a skeleton only atm,
-      // i.e. I only retrieve the amplitude from the input HeterogeneousMap (to test Rabi osc)
-      // we should pass/retrieve every param from this map (e.g. pulse shapes, pulse params, simulator configs, etc.)
-      if (in_params.keyExists<double>("drive_amp")) 
+      double kappa = 0.0001;
+
+      // Create a pulse controller
+      m_pulseChannelController = std::make_unique<PulseChannelController>();
       {
-         const double driveAmp = in_params.get<double>("drive_amp");
-         if (driveAmp < 0.0)
+         // Initialize the pulse constroller:
+         // Note: the data will eventually be loaded from XACC. For now, just use some hard-coded values.
+         // (1) Create a pulse library (pulse name to samples)
+         PulseLib testPulseLib;
+         testPulseLib.emplace("pulse1", std::vector<std::complex<double>> { 0.1, 0.2, 0.1, 0.0, -0.1, -0.2, 0.1, 0.1, 0.05 });
+         
+         // (2) Backend configs:
+         BackendChannelConfigs backendConfig;
          {
-            xacc::error("Invalid drive signal amplitude!\n");
-            return;
+            backendConfig.dt = 1.0;
+            backendConfig.nb_dChannels = 1;
+            backendConfig.loFregs_dChannels = { nu };
+            backendConfig.pulseLib = testPulseLib;
+         }
+
+         // Pulse schedule entries
+         PulseScheduleEntry testPulseScheduleEntry;
+         {
+            testPulseScheduleEntry.name = "pulse1";
+            testPulseScheduleEntry.startTime = 0.0;
+            testPulseScheduleEntry.stopTime = stopTime;
          }
          
-         // Set the pulse amplitude
-         pulseAmplitude = driveAmp;
-         // Debug
-         std::cout << "Pulse simulator: Set pulse amplitude to " << pulseAmplitude << ". \n";
+         PulseScheduleRegistry testPulseSchedule;
+         const size_t channelId = 0;
+         testPulseSchedule.emplace(channelId, std::vector<PulseScheduleEntry> { testPulseScheduleEntry });
+         
+         // Initialize the controller
+         m_pulseChannelController->Initialize(backendConfig, testPulseSchedule, {});
       }
 
-      XACC_QuaC_InitializePulseSim(buffer->size(), dt, stopTime, stepMax);
+      XACC_QuaC_InitializePulseSim(buffer->size(), dt, stopTime, stepMax, reinterpret_cast<PulseChannelProvider*>(m_pulseChannelController.get()));
       
       // Debug:
-      // XACC_QuaC_SetLogVerbosity(DEBUG_DIAG);
+      XACC_QuaC_SetLogVerbosity(DEBUG_DIAG);
       
       // TODO: Parse the QObj to get the Hamiltonian params
       // For now, just hard-coded
-      // H = 2*pi*nu(1-sigma_z)/2 + D(t)*sigma_x
+      // H = -pi*nu*sigma_z + D(t)*sigma_x
       // D(t) is a Gaussian pulse 
       
       // Time-independent terms:
-      XACC_QuaC_AddConstHamiltonianTerm1("I", 0, { omega/2.0, 0.0});
       XACC_QuaC_AddConstHamiltonianTerm1("Z", 0, { -omega/2.0, 0.0});
 
       // Time-dependent term:
-      DECLARE_GAUSSIAN_PULSE(pulseAmplitude, driveMu, driveSigma, omega);
-      XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, GAUSSIAN_PULSE_FUNC);
+      XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, "D0");
 
       XACC_QuaC_AddQubitDecay(0, kappa);
    }
@@ -99,7 +146,15 @@ namespace QuaC {
    {
       std::cout << "Pulse simulator: solving the Hamiltonian. \n";
       double* results = nullptr;
-      const auto resultSize = XACC_QuaC_RunPulseSim(&results);
+      
+      TSData* tsData;  
+      int nbSteps;
+      const auto resultSize = XACC_QuaC_RunPulseSim(&results, &nbSteps, &tsData);
+      
+#ifdef EXPORT_TS_DATA_AS_CSV
+      writeTimesteppingDataToCsv("output", tsData, nbSteps);
+#endif
+
       std::cout << "Final result: ";
       for (int i = 0; i < resultSize; ++i)
       {

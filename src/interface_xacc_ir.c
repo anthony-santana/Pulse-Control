@@ -7,6 +7,8 @@
 #include "quantum_gates.h"
 #include "petsc.h"
 #include <stdbool.h>
+#include "macros.h"
+#include "PulseControllerHandle.h"
 
 // Global vars 
 // Mode of simulation
@@ -41,6 +43,11 @@ operator* qubits;
 Vec psi;
 circuit g_circuit;
 
+int g_nbStepCount = 0;
+TSData* g_timeSteppingData = NULL;
+
+PulseChannelProvider* g_PulseDataProvider;
+
 // Hard-coded for testing
 PetscReal g_timeMax  = 9;
 PetscReal g_dt = 0.01;
@@ -64,6 +71,28 @@ bool g_wasInitialized = false;
         printf("ERROR! PULSE simulation mode has not been initialized!\n");\
         exit(1);\
     }
+
+// Generate dummy channel drive functions (signature double(double)) which 
+// just refer to g_PulseDataProvider to get the data.
+// (each function declared here has an implied channel index)
+// Register 2 channels
+REGISTER_N_DRIVE_CHANNELS(g_PulseDataProvider, 2);
+typedef double channelFunctionType(double time);
+// Map from channel name to channel Id
+channelFunctionType* GetChannelFunction(const char* in_channelName)
+{
+    // Simple set-up: 1 qubit with D0 and U0 channels
+    if (strcmp(in_channelName, "D0") == 0)
+    {
+        return GET_DRIVE_CHANNEL_FN(0);
+    }
+    if (strcmp(in_channelName, "U0") == 0)
+    {
+        return GET_DRIVE_CHANNEL_FN(1);
+    }
+
+    return NULL;
+}
 
 // Time-stepping monitor function
 PetscErrorCode g_tsDefaultMonitorFunc(TS, PetscInt, PetscReal, Vec, void*);
@@ -140,13 +169,25 @@ void XACC_QuaC_Finalize()
     
     free(qubits);   
     destroy_dm(psi);
+
+    if (g_nbStepCount > 0)
+    {
+        // Free population data (at each time-step)
+        for (int i = 0; i < g_nbStepCount; i++)
+        {
+            free(g_timeSteppingData[i].populations);
+        }
+        // Free the array of timestepping data-structures itself.
+        free(g_timeSteppingData);
+    }
+
     QuaC_finalize();
 }
 
-int XACC_QuaC_InitializePulseSim(int in_nbQubit, double in_dt, double in_stopTime, int in_stepMax)
+int XACC_QuaC_InitializePulseSim(int in_nbQubit, double in_dt, double in_stopTime, int in_stepMax, PulseChannelProvider* in_pulseDataProvider)
 {
     g_simulationMode = PULSE;
-    
+    g_PulseDataProvider = in_pulseDataProvider;
     if (!g_wasInitialized)
     {
         QuaC_initialize(0, NULL);
@@ -214,11 +255,17 @@ void XACC_QuaC_AddConstHamiltonianTerm1(const char* in_op, int in_qubitIdx, Comp
 }
 
 
-void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, double (*in_driveFunc)(double))
+void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, const char* in_channelName)
 {
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx);
-    add_to_ham_time_dep(in_driveFunc, 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
+    channelFunctionType* channelFn = GetChannelFunction(in_channelName);
+    if (channelFn == NULL)
+    {
+        printf("ERROR! Unknown drive channel!\n");
+        return;
+    }
+    add_to_ham_time_dep(channelFn, 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
 }
 
 
@@ -230,7 +277,7 @@ void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, co
     add_to_ham_mult2(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
 }
 
-void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, double (*in_driveFunc)(double))
+void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, const char* in_channelName)
 {
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx1);
@@ -238,26 +285,40 @@ void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubit
     TODO(Implement time-dependent product terms in QuaC)
 }
 
-int XACC_QuaC_RunPulseSim(double** out_result)
+int XACC_QuaC_RunPulseSim(double** out_result, int* out_nbSteps, TSData** out_timeSteppingData)
 {
     // Allocate resources
     create_full_dm(&psi);
     set_dm_from_initial_pop(psi);
 
     set_ts_monitor(g_tsDefaultMonitorFunc);
+
+    g_timeSteppingData =  malloc(g_stepsMax * sizeof(TSData));
+
     time_step(psi, 0.0, g_timeMax, g_dt, g_stepsMax);
     // Returns the population for each qubit
     int nbResults = get_num_populations();
     *out_result = malloc(nbResults * sizeof(double));
     get_populations(psi, &(*out_result)); 
+      
+    *out_nbSteps = g_nbStepCount;
+    *out_timeSteppingData = g_timeSteppingData;
+
     return nbResults;
 }
+
 PetscErrorCode g_tsDefaultMonitorFunc(TS ts, PetscInt step, PetscReal time, Vec dm, void *ctx)
 {
+    
     int num_pop = get_num_populations();
     double *populations;
     populations = malloc(num_pop*sizeof(double));
     get_populations(dm, &populations);
+
+    g_timeSteppingData[g_nbStepCount].time = time;
+    g_timeSteppingData[g_nbStepCount].nbPops = num_pop;
+    g_timeSteppingData[g_nbStepCount].populations = malloc(num_pop * sizeof(double));
+    memcpy(g_timeSteppingData[g_nbStepCount].populations, populations, num_pop * sizeof(double));
 
     if (nid==0)
     {
@@ -271,6 +332,6 @@ PetscErrorCode g_tsDefaultMonitorFunc(TS ts, PetscInt step, PetscReal time, Vec 
     }
 
     free(populations);
-
+    g_nbStepCount++;
     PetscFunctionReturn(0);
 }
