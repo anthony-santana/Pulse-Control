@@ -6,6 +6,27 @@ namespace {
     const std::complex<double> I(0.0, 1.0);
 }
 
+bool BackendChannelConfigs::hasPulseName(const std::string& in_pulseName) const
+{
+    return pulseLib.find(in_pulseName) != pulseLib.end();
+}
+
+void BackendChannelConfigs::addOrReplacePulse(const std::string& in_pulseName, const std::vector<std::complex<double>>& in_pulseData)
+{
+    pulseLib[in_pulseName] = in_pulseData;
+}
+
+double BackendChannelConfigs::getPulseDuration(const std::string& in_pulseName) const
+{
+    if (!hasPulseName(in_pulseName))
+    {
+        return 0.0;
+    }
+
+    const auto iter = pulseLib.find(in_pulseName);
+    return iter->second.size() * dt;
+}
+
 PulseChannelController::PulseChannelController(const BackendChannelConfigs& in_backendConfig):
     m_isInitialized(false),
     m_context({}),
@@ -187,7 +208,7 @@ double PulseChannelController::GetPulseValue(int in_channelId, double in_time)
         // Mixing signal
         const auto outputSignal = rawPulseData * std::exp(I*accumulatedFcPhases) * exp(- I * 2.0 * M_PI * loFreq * in_time);
         // Debug
-        std::cout << "D[" << in_channelId << "](" << in_time << ") = "<< outputSignal.real() << " (raw input = " << rawPulseData << "; FC phase = " << accumulatedFcPhases << ")\n";
+        // std::cout << "D[" << in_channelId << "](" << in_time << ") = "<< outputSignal.real() << " (raw input = " << rawPulseData << "; FC phase = " << accumulatedFcPhases << ")\n";
         return outputSignal.real();
     }
 

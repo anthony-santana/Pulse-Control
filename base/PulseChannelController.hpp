@@ -31,6 +31,10 @@ struct BackendChannelConfigs
     
     // Pulse library
     PulseLib pulseLib;
+
+    bool hasPulseName(const std::string& in_pulseName) const;
+    void addOrReplacePulse(const std::string& in_pulseName, const std::vector<std::complex<double>>& in_pulseData);
+    double getPulseDuration(const std::string& in_pulseName) const;
 };
 
 
@@ -107,6 +111,7 @@ public:
     // U channel
     int GetControlChannelId(int in_uChannelIdx) const;
 
+    BackendChannelConfigs& GetBackendConfigs() { return m_configs; }
 private:
     // Move the internal tracking time clock (i.e. checking all the pulse schedules w.r.t. the current time)
     void Tick(double in_time);

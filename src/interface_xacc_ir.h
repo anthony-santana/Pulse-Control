@@ -29,6 +29,8 @@ typedef struct ComplexCoefficient {
 // Time-stepping data
 typedef struct TSData {
     double time;
+    int nbChannels;
+    double* channelData;
     int nbPops;
     double* populations;
 } TSData;
@@ -56,7 +58,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_Finalize();
 // Pulse simulation initialization:
 // Note: we *solve* the master equation using QuaC, not via Monte-Carlo method.
 // Hence, we don't need to have the *shots* params.
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, double in_dt, double in_stopTime, int in_stepMax, PulseChannelProvider* in_pulseDataProvider);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider);
 
 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_SetLogVerbosity(log_verbosity in_verboseConfig);
@@ -67,12 +69,12 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddQubitDecay(int
 
 // Run the Pulse simulation and return the expectation values:
 // Returns the size of the result array. Caller needs to clean up. 
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_RunPulseSim(double** out_result, int* out_nbSteps, TSData** out_timeSteppingData);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_RunPulseSim(double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData);
 
 // ====   Hamiltonian construction API's ====
 // Adding a single-operator term to the Hamiltonian:
 // (1) Time-independent term: 
-// Syntax: coeff * ['X', 'Y', 'Z', 'I', 'SP', 'SM']_i
+// Syntax: coeff * ['X', 'Y', 'Z', 'I', 'SP', 'SM', 'O', 'N']_i
 // 'SP' and 'SM' are the sigma plus and sigma minus operators.
 // Coefficient is a complex parameter and this term can only act on 1 qubit.
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddConstHamiltonianTerm1(const char* in_op, int in_qubitIdx, ComplexCoefficient in_coeff);
@@ -86,5 +88,5 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentH
 // (1) Time-independent term: 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, ComplexCoefficient in_coeff);
 // (2) Time-dependent term:
-__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, const char* in_channelName);
+__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, int in_channelId);
 // ======================================================================

@@ -57,6 +57,7 @@ PetscReal gate_time_step = 1.0;
 int nbQubits; 
 
 bool g_wasInitialized = false;
+int g_nbTimeDepChannels = 0;
 
 #define ASSERT_QUBIT_INDEX(qubitIdx) \
     if (qubitIdx > nbQubits) \
@@ -167,6 +168,7 @@ void XACC_QuaC_Finalize()
         for (int i = 0; i < g_nbStepCount; i++)
         {
             free(g_timeSteppingData[i].populations);
+            free(g_timeSteppingData[i].channelData);
         }
         // Free the array of timestepping data-structures itself.
         free(g_timeSteppingData);
@@ -175,7 +177,7 @@ void XACC_QuaC_Finalize()
     QuaC_finalize();
 }
 
-int XACC_QuaC_InitializePulseSim(int in_nbQubit, double in_dt, double in_stopTime, int in_stepMax, PulseChannelProvider* in_pulseDataProvider)
+int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider)
 {
     g_simulationMode = PULSE;
     g_PulseDataProvider = in_pulseDataProvider;
@@ -193,13 +195,7 @@ int XACC_QuaC_InitializePulseSim(int in_nbQubit, double in_dt, double in_stopTim
         create_op(2, &qubits[i]);
         set_initial_pop(qubits[i], 0);
     }
-    
-    {
-        g_dt = in_dt;
-        g_timeMax = in_stopTime;
-        g_stepsMax = in_stepMax;
-    }
-   
+     
     return 0;
 }
 
@@ -231,6 +227,8 @@ operator* GetQubitOperator(operator qubitOp, const char* in_op)
         return (qubitOp)->sig_z;
     } else if (strcmp(in_op, "I") == 0) {
         return (qubitOp)->eye;
+    } else if (strcmp(in_op, "O") == 0 || strcmp(in_op, "N") == 0) {
+        return (qubitOp)->n;
     } else {
         printf("ERROR! Unknown operator!\n");
         exit(1);
@@ -252,6 +250,8 @@ void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitI
     ASSERT_QUBIT_INDEX(in_qubitIdx);
     
     add_to_ham_time_dep(g_channelFnArray[in_channelId], 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
+    // Number of channels is the max of index + 1
+    g_nbTimeDepChannels = (in_channelId + 1 > g_nbTimeDepChannels) ? in_channelId + 1 : g_nbTimeDepChannels;
 }
 
 
@@ -263,16 +263,22 @@ void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, co
     add_to_ham_mult2(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
 }
 
-void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, const char* in_channelName)
+void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, int in_channelId)
 {
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx1);
     ASSERT_QUBIT_INDEX(in_qubitIdx2);
     TODO(Implement time-dependent product terms in QuaC)
+    // Number of channels is the max of index + 1
+    g_nbTimeDepChannels = (in_channelId + 1 > g_nbTimeDepChannels) ? in_channelId + 1 : g_nbTimeDepChannels;
 }
 
-int XACC_QuaC_RunPulseSim(double** out_result, int* out_nbSteps, TSData** out_timeSteppingData)
+int XACC_QuaC_RunPulseSim(double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData)
 {
+    g_dt = in_dt;
+    g_timeMax = in_stopTime;
+    g_stepsMax = in_stepMax;
+    
     // Allocate resources
     create_full_dm(&psi);
     set_dm_from_initial_pop(psi);
@@ -304,7 +310,15 @@ PetscErrorCode g_tsDefaultMonitorFunc(TS ts, PetscInt step, PetscReal time, Vec 
     g_timeSteppingData[g_nbStepCount].time = time;
     g_timeSteppingData[g_nbStepCount].nbPops = num_pop;
     g_timeSteppingData[g_nbStepCount].populations = malloc(num_pop * sizeof(double));
+    g_timeSteppingData[g_nbStepCount].nbChannels = g_nbTimeDepChannels;
+    g_timeSteppingData[g_nbStepCount].channelData = malloc(g_nbTimeDepChannels * sizeof(double));
+    
     memcpy(g_timeSteppingData[g_nbStepCount].populations, populations, num_pop * sizeof(double));
+
+    for (int i = 0; i < g_nbTimeDepChannels; ++i)
+    {
+        g_timeSteppingData[g_nbStepCount].channelData[i] = g_channelFnArray[i](time);
+    }
 
     if (nid==0)
     {

@@ -5,6 +5,11 @@ set (LIBRARY_NAME xacc_quac)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+# Enable mocking for testing
+# We will disable this eventually...
+add_compile_definitions(ENABLE_MOCKING)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Mock)
+
 file (GLOB HEADERS *.hpp)
 file (GLOB SRC *.cpp Accelerator/*.cpp)
 

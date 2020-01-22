@@ -1,56 +1,38 @@
 // !!! TEMP CODE !!! Thien Nguyen: For testing purposes only
 
 #include "xacc.hpp"
+#include "Pulse.hpp"
 
 int main (int argc, char** argv) {
-
 	// Initialize the XACC Framework
 	xacc::Initialize(argc, argv);
+    // Use the mock 2Q backend
+    const std::string backendName = "Fake2Q";
+   
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("sim-mode", "Pulse"), std::make_pair("backend", backendName), std::make_pair("config-json-path", "/home/cades/dev/xacc/quantum/gate/ir/tests/files/test_backends.json") });    
+
+
+    // Create a simple pulse program using IR
+    auto provider = xacc::getIRProvider("quantum");
+    auto compositeInst = provider->createComposite("test_pulse");
+    auto pulseInst1 = std::make_shared<xacc::quantum::Pulse>("CR90m_u10_3e8d", "d0");
+    auto pulseInst2 = std::make_shared<xacc::quantum::Pulse>("CR90m_u11_77cd", "u0");
+    auto pulseInst3 = std::make_shared<xacc::quantum::Pulse>("CR90m_u12_3c09", "d1");
+    auto pulseInst4 = std::make_shared<xacc::quantum::Pulse>("CR90m_d7_cefe", "u1");
+    auto pulseInst5 = std::make_shared<xacc::quantum::Pulse>("CR90m_d6_6b71", "d0");
+    auto pulseInst6 = std::make_shared<xacc::quantum::Pulse>("CR90m_u24_1d67", "d1");
+
+    compositeInst->addInstruction(pulseInst1);
+    compositeInst->addInstruction(pulseInst2);
+    compositeInst->addInstruction(pulseInst3);
+    compositeInst->addInstruction(pulseInst4);
+    compositeInst->addInstruction(pulseInst5);
+    compositeInst->addInstruction(pulseInst6);
+
+
+    auto qubitReg = xacc::qalloc(2);    
+    quaC->execute(qubitReg, compositeInst);
     
-    double pulseAmp = 0.0;
-    if (argc <= 1) 
-    {
-        // No drive pulse amplitude provided in the command line, it will be default as 0.0 (mo drive)
-        std::cerr << "Usage: " << argv[0] << " --drive-amp VALUE\n"
-            << "\t--drive-amp\tSet the amplitude of the Gaussian Pulse drive.\n"
-            << "\tIf not provided, it will be set to 0.0."
-            << std::endl;
-    }
-    else
-    {
-        for (int i = 1; i < argc; ++i) 
-        {
-            const std::string arg = argv[i];
-            if (arg == "--drive-amp") 
-            { 
-                if (i + 1 < argc) 
-                { 
-                    const std::string ampAsString = argv[++i]; 
-                    size_t doubleStringSize; 
-                    try 
-                    {
-                        pulseAmp = std::stod(ampAsString, &doubleStringSize);
-                    }
-                    catch (...) 
-                    {
-                       // Invalid number
-                       std::cerr << "'" << ampAsString << "' cannot be converted to a number." << std::endl;
-                       return 1;
-                    }
-                } 
-                else 
-                {   // No value is provided
-                    std::cerr << "--drive-amp option requires one argument." << std::endl;
-                    return 1;
-                }  
-            } 
-        }
-    }
-    
-    // Get the Pulse simulator
-    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("sim-mode", "Pulse"), std::make_pair("drive_amp", pulseAmp) });    
-    auto qubitReg = xacc::qalloc(1);    
-    quaC->execute(qubitReg, nullptr);
     // Finalize the XACC Framework
 	xacc::Finalize();
 
