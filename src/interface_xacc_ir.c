@@ -284,8 +284,10 @@ int XACC_QuaC_RunPulseSim(double in_dt, double in_stopTime, int in_stepMax, doub
     set_dm_from_initial_pop(psi);
 
     set_ts_monitor(g_tsDefaultMonitorFunc);
-
-    g_timeSteppingData =  malloc(g_stepsMax * sizeof(TSData));
+    // Allocate an ample array for TS data.
+    // Note: the real data (channels, populations, etc.) is allocated separarely, 
+    // hence doesn't bloat the memory.
+    g_timeSteppingData =  malloc(2 * g_stepsMax * sizeof(TSData));
 
     time_step(psi, 0.0, g_timeMax, g_dt, g_stepsMax);
     // Returns the population for each qubit

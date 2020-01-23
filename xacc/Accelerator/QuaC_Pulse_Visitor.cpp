@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <cassert>
 #include "Pulse.hpp"
+#include "Scheduler.hpp"
 
 extern "C" {
 #include "interface_xacc_ir.h"
@@ -92,11 +93,6 @@ namespace {
    enum class ChannelType { Invalid, D, U };
    std::pair<ChannelType, int> PulseChannelFromString(const std::string& in_channelName)
    {
-      if (in_channelName.front() != 'd' && in_channelName.front() != 'u')
-      {
-         return std::make_pair(ChannelType::Invalid, 0);
-      }
-
       if (in_channelName.front() == 'd')
       {
          const std::string channelNum = in_channelName.substr(1);
@@ -106,6 +102,68 @@ namespace {
       {
          const std::string channelNum = in_channelName.substr(1);
          return std::make_pair(ChannelType::U, std::stoi(channelNum)); 
+      }
+
+      return std::make_pair(ChannelType::Invalid, 0);
+   }
+   
+   double LoadFromPulse(FrameChangeCommandEntry& io_fcCommand, xacc::quantum::Pulse& in_pulseInst, double in_sampleDt)
+   {
+      assert(in_pulseInst.name() == "fc");
+      io_fcCommand.startTime = in_pulseInst.start() * in_sampleDt;
+      io_fcCommand.phase = in_pulseInst.getParameter(0).as<double>();
+      return io_fcCommand.startTime;
+   }
+
+   double LoadFromPulse(PulseScheduleEntry& io_pulseEntry, xacc::quantum::Pulse& in_pulseInst, double in_sampleDt)
+   {
+      io_pulseEntry.name = in_pulseInst.name();
+      io_pulseEntry.startTime = in_pulseInst.start() * in_sampleDt;
+      const double expectedStopTime = (in_pulseInst.duration() + in_pulseInst.start()) * in_sampleDt;
+      io_pulseEntry.stopTime = expectedStopTime;
+      return io_pulseEntry.stopTime;
+   }
+
+   // Helper to insert Pulse/FC entries to pulse constroller scheduling map
+   template<class PulseItemType>
+   void UpdatePulseScheduleMap(std::unordered_map<size_t, std::vector<PulseItemType>>& io_mapToUpdate, xacc::quantum::Pulse& in_pulseInst, PulseChannelController& io_pulseController, double& out_endTime)
+   {
+      const std::string channelName = in_pulseInst.channel();
+      PulseItemType entry;
+      out_endTime = LoadFromPulse(entry, in_pulseInst, io_pulseController.GetBackendConfigs().dt);
+      const auto channelTypeIdPair = PulseChannelFromString(channelName);
+      switch (channelTypeIdPair.first)
+      {
+         case ChannelType::D:
+         {
+            const auto channelId = io_pulseController.GetDriveChannelId(channelTypeIdPair.second);
+            auto existingScheduleIter = io_mapToUpdate.find(channelId);
+            if (existingScheduleIter == io_mapToUpdate.end())
+            {
+               io_mapToUpdate.emplace(channelId, std::vector<PulseItemType> { entry });
+            }
+            else
+            {
+               existingScheduleIter->second.emplace_back(entry);
+            }
+            break;
+         }
+         case ChannelType::U:
+         {
+            const auto channelId = io_pulseController.GetControlChannelId(channelTypeIdPair.second);
+            auto existingScheduleIter = io_mapToUpdate.find(channelId);
+            if (existingScheduleIter == io_mapToUpdate.end())
+            {
+               io_mapToUpdate.emplace(channelId, std::vector<PulseItemType> { entry });
+            }
+            else
+            {
+               existingScheduleIter->second.emplace_back(entry);
+            }
+            break;
+         } 
+         case ChannelType::Invalid:
+            xacc::error("Invalid Pulse channel named '" + channelName + "'\n");
       }
    }
 }
@@ -123,11 +181,6 @@ namespace QuaC {
       // Qubit decay: just use a very small value
       // TODO: we can convert the T1 data from backend data to this param
       double kappa = 0.0001;
-     
-     
-      double nu = 5.0;
-      double omega = 2 * M_PI * nu;
-
       BackendChannelConfigs backendConfig;
       std::string backendName;
       if(in_params.stringExists("backend"))
@@ -174,7 +227,7 @@ namespace QuaC {
          // Step 1: Initialize the QuaC solver
          XACC_QuaC_InitializePulseSim(buffer->size(), reinterpret_cast<PulseChannelProvider*>(m_pulseChannelController.get()));
          // Debug:
-         XACC_QuaC_SetLogVerbosity(DEBUG_DIAG);
+         // XACC_QuaC_SetLogVerbosity(DEBUG_DIAG);
       }
 
       {
@@ -276,14 +329,58 @@ namespace QuaC {
       return pulseSamples;
    }
 
+   void PulseVisitor::schedulePulses(const std::shared_ptr<CompositeInstruction>& in_pulseInstruction) 
+   {
+      // Check if any raw pulse instructions are referring to pulse from the library,
+      // i.e. not carrying correct duration (sample size) data
+      xacc::InstructionIterator it(in_pulseInstruction);
+      while (it.hasNext()) 
+      {
+         auto nextInst = it.next();
+         if (nextInst->isEnabled() && !nextInst->isComposite()) 
+         {
+            auto pulse = std::dynamic_pointer_cast<xacc::quantum::Pulse>(nextInst);
+            if (!pulse) 
+            {
+               xacc::error("Invalid instruction in pulse program.");
+            }
+            
+            const std::string pulseName = pulse->name();
+            // This pulse doesn't have duration data 
+            // i.e. perhaps just refers to a known pulse, hence update its data accordingly.
+            if (pulseName != "fc" && pulseName != "acquire" && pulse->duration() == 0)
+            {
+               const size_t pulseSampleSizeFromLib = m_pulseChannelController->GetBackendConfigs().getPulseSampleSize(pulseName);
+               if (pulseSampleSizeFromLib > 0)
+               {
+                  // Update the pulse data
+                  pulse->setDuration(pulseSampleSizeFromLib);
+               }
+            }
+         }
+      }
+
+      // After we have adjust the pulse duration (if missing)
+      // Use XACC Pulse scheduler to schedule pulses:
+      // Debug:
+      // std::cout << "Before Scheduled : \n" << in_pulseInstruction->toString() << "\n";
+   
+      auto scheduler = xacc::getService<xacc::Scheduler>("default");
+      scheduler->schedule(in_pulseInstruction);
+      
+      // Debug:
+      // std::cout << "After Scheduled : \n" << in_pulseInstruction->toString() << "\n";
+   }
 
    void PulseVisitor::solve(const std::shared_ptr<CompositeInstruction>& in_pulseInstruction) 
    {
-      // Add *compiled* pulse instructions to the pulse controller's schedule
-      // i.e. the pulse controller will drive all time-dependent channels according to the pulse CompositeInstruction
-      std::unordered_map<std::string, double> channelToTime;
+      // Step 1: schedule the pulse program
+      schedulePulses(in_pulseInstruction);      
+      
+      // Step 2: initialize the pulse channel controller with the scheduled pulses
       PulseScheduleRegistry allPulseSchedules;
-
+      FrameChangeScheduleRegistry allFcSchedules;
+      double simStopTime = 0.0;
       xacc::InstructionIterator it(in_pulseInstruction);
       while (it.hasNext()) 
       {
@@ -297,70 +394,52 @@ namespace QuaC {
             }
             const std::string channelName = pulse->channel();
             const std::string pulseName = pulse->name();
-            if (!m_pulseChannelController->GetBackendConfigs().hasPulseName(pulseName))
+
+            // Handle Frame changes
+            if (pulseName == "fc")
             {
-               // Perhaps it's a dynamic pulse (constructed on the fly using IR-level API)
-               if (pulse->getSamples().empty())
+               double endTime = 0.0;
+               UpdatePulseScheduleMap(allFcSchedules, *pulse, *m_pulseChannelController, endTime);
+               if (endTime > simStopTime)
                {
-                  xacc::error("Invalid instruction in pulse program.");
+                  simStopTime = endTime;
                }
-               // Imported the pulse (on-demand)
-               m_pulseChannelController->GetBackendConfigs().addOrReplacePulse(pulseName, PulseSamplesToComplexVec(pulse->getSamples()));
-            }  
-
-            if (channelToTime.find(channelName) == channelToTime.end())
+            }
+            else if (pulseName == "acquire")
             {
-               channelToTime.emplace(channelName, 0);
-            }    
-
-            auto& currentChannelTime = channelToTime[channelName];
-            PulseScheduleEntry scheduleEntry;
-            scheduleEntry.name = pulseName;
-            scheduleEntry.startTime = currentChannelTime;
-            const double expectedStopTime = m_pulseChannelController->GetBackendConfigs().getPulseDuration(pulseName) + currentChannelTime;
-            scheduleEntry.stopTime = expectedStopTime;
-            currentChannelTime = expectedStopTime;
-
-            const auto channelTypeIdPair = PulseChannelFromString(channelName);
-            switch (channelTypeIdPair.first)
+               // TODO: we don't support acquire yet
+               xacc::warning("Acquire is not supported. Skipped!!!!");
+            }
+            else
             {
-               case ChannelType::D:
+               // This is a pulse instruction (pulse name + sample)
+               
+               // Check in case this is a new pulse that may be constructed on-the-fly
+               // e.g. we can, at IR-level, create a new pulse (arbitrary name and supply the samples),
+               // then add to the composite. We will gracefully handle that by adding that user-defined pulse to the library. 
+               if (!m_pulseChannelController->GetBackendConfigs().hasPulseName(pulseName))
                {
-                  const auto channelId = m_pulseChannelController->GetDriveChannelId(channelTypeIdPair.second);
-                  auto existingScheduleIter = allPulseSchedules.find(channelId);
-                  if (existingScheduleIter == allPulseSchedules.end())
+                  // Perhaps it's a dynamic pulse (constructed on the fly using IR-level API)
+                  if (pulse->getSamples().empty())
                   {
-                     allPulseSchedules.emplace(channelId, std::vector<PulseScheduleEntry> { scheduleEntry });
+                     xacc::error("Invalid instruction in pulse program.");
                   }
-                  else
-                  {
-                     existingScheduleIter->second.emplace_back(scheduleEntry);
-                  }
-                  break;
-              }
-              case ChannelType::U:
-              {
-                  const auto channelId = m_pulseChannelController->GetControlChannelId(channelTypeIdPair.second);
-                  auto existingScheduleIter = allPulseSchedules.find(channelId);
-                  if (existingScheduleIter == allPulseSchedules.end())
-                  {
-                     allPulseSchedules.emplace(channelId, std::vector<PulseScheduleEntry> { scheduleEntry });
-                  }
-                  else
-                  {
-                     existingScheduleIter->second.emplace_back(scheduleEntry);
-                  }
-                  break;
-              } 
-              case ChannelType::Invalid:
-                  xacc::error("Invalid Pulse channel named '" + channelName + "'\n");
+                  // Imported the pulse (on-demand)
+                  m_pulseChannelController->GetBackendConfigs().addOrReplacePulse(pulseName, PulseSamplesToComplexVec(pulse->getSamples()));
+               }                
+               
+               double endTime = 0.0;
+               UpdatePulseScheduleMap(allPulseSchedules, *pulse, *m_pulseChannelController, endTime);
+               if (endTime > simStopTime)
+               {
+                  simStopTime = endTime;
+               }
             }
          }
       }
       
-      
-      // TODO: Implement phase changes and other commands      
-      m_pulseChannelController->Initialize(allPulseSchedules, {});
+      // Initialize the channel controller with pulse and fc commands     
+      m_pulseChannelController->Initialize(allPulseSchedules, allFcSchedules);
 
       std::cout << "Pulse simulator: solving the Hamiltonian. \n";
       double* results = nullptr;
@@ -368,23 +447,17 @@ namespace QuaC {
       // Note: This dt is the solver step size (which may be adaptive),
       // this should be smaller than the Pulse dt (sample step size).
       double dt = m_pulseChannelController->GetBackendConfigs().dt/100.0;
-      double stopTime = 0.0;
-      for (const auto& kv : channelToTime) 
-      {
-         if (kv.second > stopTime)
-         {
-            // Stop time is the max time on all channels
-            stopTime = kv.second;
-         }
-      } 
-      // Add some extra time 
-      stopTime += 1.0; 
+      
+      // Add some extra time (device dt) to simulation time
+      simStopTime += m_pulseChannelController->GetBackendConfigs().dt; 
     
-      int stepMax = static_cast<int>(std::ceil(stopTime/dt));
+      int stepMax = static_cast<int>(std::ceil(simStopTime/dt));
       
       TSData* tsData;  
       int nbSteps;
-      const auto resultSize = XACC_QuaC_RunPulseSim(dt, stopTime, stepMax, &results, &nbSteps, &tsData);
+      
+      // Step 3: Run the simulation
+      const auto resultSize = XACC_QuaC_RunPulseSim(dt, simStopTime, stepMax, &results, &nbSteps, &tsData);
       
 #ifdef EXPORT_TS_DATA_AS_CSV
       writeTimesteppingDataToCsv("output", tsData, nbSteps);

@@ -16,6 +16,16 @@ void BackendChannelConfigs::addOrReplacePulse(const std::string& in_pulseName, c
     pulseLib[in_pulseName] = in_pulseData;
 }
 
+size_t BackendChannelConfigs::getPulseSampleSize(const std::string& in_pulseName) const
+{
+    if (!hasPulseName(in_pulseName))
+    {
+        return 0;
+    }
+    const auto iter = pulseLib.find(in_pulseName);
+    return iter->second.size();
+}
+
 double BackendChannelConfigs::getPulseDuration(const std::string& in_pulseName) const
 {
     if (!hasPulseName(in_pulseName))

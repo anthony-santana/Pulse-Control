@@ -19,6 +19,8 @@ namespace QuaC {
         virtual std::shared_ptr<PulseVisitor> clone() { return std::make_shared<PulseVisitor>(); }
         static std::vector<std::complex<double>> PulseSamplesToComplexVec(const std::vector<std::vector<double>>& in_samples);
     private:
+        void schedulePulses(const std::shared_ptr<CompositeInstruction>& in_pulseInstruction);
+    private:
         std::unique_ptr<PulseChannelController> m_pulseChannelController;
     };    
 }

@@ -34,6 +34,7 @@ struct BackendChannelConfigs
 
     bool hasPulseName(const std::string& in_pulseName) const;
     void addOrReplacePulse(const std::string& in_pulseName, const std::vector<std::complex<double>>& in_pulseData);
+    size_t getPulseSampleSize(const std::string& in_pulseName) const;
     double getPulseDuration(const std::string& in_pulseName) const;
 };
 

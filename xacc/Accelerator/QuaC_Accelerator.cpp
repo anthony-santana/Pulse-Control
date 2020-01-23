@@ -80,6 +80,13 @@ namespace QuaC {
         auto provider = xacc::getIRProvider("quantum");
         auto j = nlohmann::json::parse(custom_json_config);
         auto backends = j["backends"];
+
+        // Add frame change and acquire
+        auto fc = std::make_shared<Pulse>("fc");
+        xacc::contributeService("fc", fc);
+        auto aq = std::make_shared<Pulse>("acquire");
+        xacc::contributeService("acquire", aq);
+
         for (auto it = backends.begin(); it != backends.end(); ++it) 
         {
             // Get the pulse library
@@ -108,6 +115,78 @@ namespace QuaC {
                         }
                     }
                 }                
+            }
+
+            // Import command defs (sequence of pulses)
+            auto cmd_defs = (*it)["specificConfiguration"]["defaults"]["cmd_def"];
+            for (auto cmd_def_iter = cmd_defs.begin(); cmd_def_iter != cmd_defs.end(); ++cmd_def_iter) 
+            {
+                const auto cmd_def_name = (*cmd_def_iter)["name"].get<std::string>();
+                const auto qbits = (*cmd_def_iter)["qubits"].get<std::vector<std::size_t>>();
+
+                std::string tmpName = "pulse::" + cmd_def_name;
+                if (cmd_def_name != "measure")
+                {
+                    for (const auto& qb : qbits)
+                    {
+                        tmpName += "_" + std::to_string(qb);
+                    }
+                }     
+                // Create a composite instruction for the command
+                auto cmd_def = provider->createComposite(tmpName);
+                // Add params if they are parameterized commands
+                if (cmd_def_name == "u3") 
+                {
+                    cmd_def->addVariables({"P0", "P1", "P2"});
+                } 
+                else if (cmd_def_name == "u1") 
+                {
+                    cmd_def->addVariables({"P0"});
+                } 
+                else if (cmd_def_name == "u2") 
+                {
+                    cmd_def->addVariables({"P0", "P1"});
+                }
+
+                auto sequence = (*cmd_def_iter)["sequence"];
+                for (auto seq_iter = sequence.begin(); seq_iter != sequence.end(); ++seq_iter) 
+                {
+                    const auto inst_name = (*seq_iter)["name"].get<std::string>();
+                    auto inst = xacc::getContributedService<Instruction>(inst_name);
+
+                    if (inst_name != "acquire") 
+                    {
+                        const auto channel = (*seq_iter)["ch"].get<std::string>();
+                        const auto t0 = (*seq_iter)["t0"].get<int>();
+                        inst->setBits(qbits);
+                        inst->setChannel(channel);
+                        inst->setStart(t0);
+
+                        if ((*seq_iter).find("phase") != (*seq_iter).end()) 
+                        {
+                            // we have phase too
+                            auto p = (*seq_iter)["phase"];
+                            if (p.is_string()) 
+                            {
+                                // this is a variable we have to keep track of
+                                auto ptmp = p.get<std::string>();
+                                // get true variable
+                                ptmp.erase(std::remove_if(ptmp.begin(), ptmp.end(), [](char ch) { return ch == '(' || ch == ')'; }), ptmp.end());
+                                InstructionParameter phase(ptmp);
+                                inst->setParameter(0, phase);
+                            } 
+                            else 
+                            {
+                                InstructionParameter phase(p.get<double>());
+                                inst->setParameter(0, phase);
+                            }
+                        }
+                    }
+                    cmd_def->addInstruction(inst);
+                }
+                cmd_def->setBits(qbits);
+
+                xacc::contributeService(tmpName, cmd_def);
             }
         }
     }
