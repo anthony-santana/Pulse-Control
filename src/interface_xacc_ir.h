@@ -81,7 +81,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddConstHamiltoni
 // (2) Time-dependent term:
 // Similar to (1) but has a time-dependent drive function (double -> double)
 // Note: drive signal must have been *mixed* with LO, i.e. it is Re[d(t) * exp(-i * w_LO * t)] = d(t) * cos(w_LO * t)
-__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, int in_channelId);
+__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, int in_channelId, double in_coefficient);
 
 
 // Adding a two-operator term to the Hamiltonian:

@@ -180,7 +180,7 @@ namespace QuaC {
          
       // Qubit decay: just use a very small value
       // TODO: we can convert the T1 data from backend data to this param
-      double kappa = 0.0001;
+      double kappa = 1e-64;
       BackendChannelConfigs backendConfig;
       std::string backendName;
       if(in_params.stringExists("backend"))
@@ -243,7 +243,10 @@ namespace QuaC {
             XACC_QuaC_AddConstHamiltonianTerm1("Z", 0, { -M_PI * backendConfig.loFregs_dChannels[0], 0.0});    
             
             // Time-dependent term (drive channel 0):
-            XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0));
+            // Note: we calibrate this fake one qubit system to work well with the QObj data that we have
+            // from another device. 
+            const double tdCoeff = 1.5; 
+            XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), tdCoeff);
             
             // Add some decay
             XACC_QuaC_AddQubitDecay(0, kappa);     
@@ -277,17 +280,19 @@ namespace QuaC {
             // Time-dependent terms
             // TODO: we should add the multiplication coefficient to the API 
             {
+               // Reference: https://github.com/Qiskit/qiskit-terra/blob/13bc243364553667f6410b9a2f7a315c90bb598f/qiskit/test/mock/fake_openpulse_2q.py
+               const double r = 0.02;
                // Drive channel D0: 2*np.pi*r*X0||D0
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0));
+               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), 2 * M_PI * r);
                
                // D1: 2*np.pi*r*X1||D1
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetDriveChannelId(1));
+               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetDriveChannelId(1), 2 * M_PI * r);
                
                // U0: 2*np.pi*r*X1||U0
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetControlChannelId(0));
+               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetControlChannelId(0), 2 * M_PI * r);
 
                // U1: 2*np.pi*r*X0||U1              
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetControlChannelId(1));
+               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetControlChannelId(1), 2 * M_PI * r);
             }
 
             {
@@ -446,12 +451,12 @@ namespace QuaC {
       
       // Note: This dt is the solver step size (which may be adaptive),
       // this should be smaller than the Pulse dt (sample step size).
-      double dt = m_pulseChannelController->GetBackendConfigs().dt/100.0;
+      double dt = m_pulseChannelController->GetBackendConfigs().dt/1000.0;
       
       // Add some extra time (device dt) to simulation time
       simStopTime += m_pulseChannelController->GetBackendConfigs().dt; 
     
-      int stepMax = static_cast<int>(std::ceil(simStopTime/dt));
+      int stepMax = static_cast<int>(2.0 * std::ceil(simStopTime/dt));
       
       TSData* tsData;  
       int nbSteps;

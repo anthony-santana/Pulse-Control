@@ -244,12 +244,12 @@ void XACC_QuaC_AddConstHamiltonianTerm1(const char* in_op, int in_qubitIdx, Comp
 }
 
 
-void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, int in_channelId)
+void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitIdx, int in_channelId, double in_coefficient)
 {
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx);
     
-    add_to_ham_time_dep(g_channelFnArray[in_channelId], 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
+    add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
     // Number of channels is the max of index + 1
     g_nbTimeDepChannels = (in_channelId + 1 > g_nbTimeDepChannels) ? in_channelId + 1 : g_nbTimeDepChannels;
 }

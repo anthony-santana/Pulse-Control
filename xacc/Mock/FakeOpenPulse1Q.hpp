@@ -9,9 +9,9 @@ struct FakePulse1Q
     FakePulse1Q()
     {
         {
-            backendConfig.dt = 1.3333;
+            backendConfig.dt = 3.5555555555555554;
             // Unit: GHz
-            backendConfig.loFregs_dChannels = { 4.91996800692 };
+            backendConfig.loFregs_dChannels = { 4.919909215047782 };
             // Add some dummy pulse for testing
             const std::complex<double> I(0.0, 1.0);
             backendConfig.pulseLib = {

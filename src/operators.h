@@ -30,6 +30,10 @@ typedef struct time_dep_struct{
   operator *ops;
   int num_ops;
   Mat mat;
+  // Coefficient to multiply with the time_dep_func
+  // e.g. we could use the same time_dep_func in multiple Hamiltonian terms
+  // each with different multiplication coefficient.
+  double coeff;
 } time_dep_struct;
 
 
@@ -45,6 +49,8 @@ void add_lin_time_dep_p(double (*)(double),int,...);
 void add_to_ham(PetscScalar,operator);
 void add_to_ham_stiff(PetscScalar,operator);
 void add_to_ham_time_dep(double(*pulse)(double),int,...);
+// Add a time-dependent term with multiplication coefficient
+void add_to_ham_time_dep_with_coeff(double, double(*pulse)(double),int,...);
 void add_to_ham_mult2(PetscScalar,operator,operator);
 void add_to_ham_stiff_mult2(PetscScalar,operator,operator);
 void add_to_ham_mult3(PetscScalar,operator,operator,operator);

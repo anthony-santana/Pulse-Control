@@ -216,6 +216,44 @@ void add_to_ham_time_dep(double (*time_dep_func)(double),int num_ops,...){
   _time_dep_list[_num_time_dep].time_dep_func = time_dep_func;
   _time_dep_list[_num_time_dep].num_ops       = num_ops;
   _time_dep_list[_num_time_dep].ops = malloc(num_ops*sizeof(operator));
+  _time_dep_list[_num_time_dep].coeff = 1.0;
+  
+  //Add the expanded op to the matrix
+  va_start(ap,num_ops);
+  for (i=0;i<num_ops;i++){
+    op = va_arg(ap,operator);
+    _time_dep_list[_num_time_dep].ops[i] = op;
+  }
+  _num_time_dep = _num_time_dep + 1;
+  return;
+}
+
+/*
+ * add_to_ham_time_dep_with_coeff adds coefficient*a(t)*op to the time dependent hamiltonian list
+ * Inputs:
+ *        double coeff: the coefficient to multiply the time_dep_func when calculating time-dependent value.        
+ *        double (*time_dep_func)(double): time dependent function to multiply op
+ *        int num_ops:  number of operators that will be passed in
+ *        operator op1, op2,...,op_{num_ops}: operators to be added to the matrix
+ * Outputs:
+ *        none
+ */
+void add_to_ham_time_dep_with_coeff(double coeff, double (*time_dep_func)(double),int num_ops,...){
+  PetscInt    i;
+  operator    op;
+  va_list     ap;
+  _check_initialized_A();
+
+  /*
+    * Create the new PETSc matrix.
+    * These matrices are incredibly sparse (1 to 2 per row)
+    */
+
+  _time_dep_list[_num_time_dep].time_dep_func = time_dep_func;
+  _time_dep_list[_num_time_dep].num_ops       = num_ops;
+  _time_dep_list[_num_time_dep].ops = malloc(num_ops*sizeof(operator));
+  // Set the coefficient on the time-dependent struct
+  _time_dep_list[_num_time_dep].coeff = coeff;
 
   //Add the expanded op to the matrix
   va_start(ap,num_ops);
@@ -226,6 +264,7 @@ void add_to_ham_time_dep(double (*time_dep_func)(double),int num_ops,...){
   _num_time_dep = _num_time_dep + 1;
   return;
 }
+
 
 /*
  * add_to_ham_time_dep_p adds a(t)*op to the time dependent hamiltonian list
@@ -250,6 +289,7 @@ void add_to_ham_time_dep_p(double (*time_dep_func)(double),int num_ops,...){
   _time_dep_list[_num_time_dep].time_dep_func = time_dep_func;
   _time_dep_list[_num_time_dep].num_ops       = num_ops;
   _time_dep_list[_num_time_dep].ops = malloc(num_ops*sizeof(operator));
+  _time_dep_list[_num_time_dep].coeff = 1.0;
 
   //Add the expanded op to the matrix
   va_start(ap,num_ops);
@@ -275,7 +315,8 @@ void add_lin_time_dep_p(double (*time_dep_func)(double),int num_ops,...){
   _time_dep_list_lin[_num_time_dep_lin].time_dep_func = time_dep_func;
   _time_dep_list_lin[_num_time_dep_lin].num_ops       = num_ops;
   _time_dep_list_lin[_num_time_dep_lin].ops = malloc(num_ops*sizeof(operator));
-
+  _time_dep_list_lin[_num_time_dep_lin].coeff = 1.0;
+  
   //Add the expanded op to the matrix
   va_start(ap,num_ops);
   for (i=0;i<num_ops;i++){
