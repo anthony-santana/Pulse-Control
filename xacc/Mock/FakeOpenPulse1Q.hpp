@@ -9,7 +9,7 @@ struct FakePulse1Q
     FakePulse1Q()
     {
         {
-            backendConfig.dt = 3.5555555555555554;
+            backendConfig.dt = 1.0;
             // Unit: GHz
             backendConfig.loFregs_dChannels = { 4.919909215047782 };
             // Add some dummy pulse for testing

@@ -370,7 +370,7 @@ namespace QuaC {
       // Debug:
       // std::cout << "Before Scheduled : \n" << in_pulseInstruction->toString() << "\n";
    
-      auto scheduler = xacc::getService<xacc::Scheduler>("default");
+      auto scheduler = xacc::getService<xacc::Scheduler>("pulse");
       scheduler->schedule(in_pulseInstruction);
       
       // Debug:
