@@ -11,8 +11,6 @@ public:
   QuaC_Activator() {}
 
   void Start(BundleContext context) {
-    // TODO
-    std::cout << ">> DEBUG: Starting QuaC bundle ...\n";
     auto acc = std::make_shared<QuaC::QuaC_Accelerator>();
     // Register the QuaC accelerator with the service registry
     context.RegisterService<xacc::Accelerator>(acc);

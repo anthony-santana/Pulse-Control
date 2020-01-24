@@ -52,3 +52,4 @@ xacc_configure_plugin_rpath(${LIBRARY_NAME})
 set (CMAKE_INSTALL_PREFIX "${XACC_ROOT}" CACHE PATH "default install path" FORCE )
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
+install(FILES ${CMAKE_BINARY_DIR}/libQuaC.so DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
