@@ -6,11 +6,12 @@
 #include "Cloneable.hpp"
 #include "PulseChannelController.hpp"
 #include "AllGateVisitor.hpp"
+#include "Hamiltonian.hpp"
 
 using namespace xacc;
 
 namespace QuaC {    
-    class PulseVisitor : public OptionsProvider, public Cloneable<PulseVisitor>
+    class PulseVisitor : public OptionsProvider, public Cloneable<PulseVisitor>, public IChannelNameResolver
     {
     public:
         void initialize(std::shared_ptr<AcceleratorBuffer> buffer, const HeterogeneousMap& in_params = {}, const PulseLib& in_importedPulses = {});
@@ -18,6 +19,8 @@ namespace QuaC {
         void finalize();
         virtual std::shared_ptr<PulseVisitor> clone() { return std::make_shared<PulseVisitor>(); }
         static std::vector<std::complex<double>> PulseSamplesToComplexVec(const std::vector<std::vector<double>>& in_samples);
+        virtual int GetChannelId(const std::string& in_channelName) override;
+
     private:
         void schedulePulses(const std::shared_ptr<CompositeInstruction>& in_pulseInstruction);
     private:

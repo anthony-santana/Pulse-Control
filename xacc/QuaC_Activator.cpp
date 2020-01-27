@@ -3,6 +3,7 @@
 #include "cppmicroservices/ServiceProperties.h"
 #include "QuaC_Accelerator.hpp"
 #include <iostream>
+#include "Hamiltonian.hpp"
 
 using namespace cppmicroservices;
 
@@ -14,6 +15,7 @@ public:
     auto acc = std::make_shared<QuaC::QuaC_Accelerator>();
     // Register the QuaC accelerator with the service registry
     context.RegisterService<xacc::Accelerator>(acc);
+    context.RegisterService<QuaC::HamiltonianParsingUtil>(std::make_shared<QuaC::HamiltonianParsingUtil>());
   }
 
   void Stop(BundleContext context) {}

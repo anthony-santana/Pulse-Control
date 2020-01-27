@@ -93,12 +93,12 @@ namespace {
    enum class ChannelType { Invalid, D, U };
    std::pair<ChannelType, int> PulseChannelFromString(const std::string& in_channelName)
    {
-      if (in_channelName.front() == 'd')
+      if (in_channelName.front() == 'd' || in_channelName.front() == 'D')
       {
          const std::string channelNum = in_channelName.substr(1);
          return std::make_pair(ChannelType::D, std::stoi(channelNum)); 
       }
-      if (in_channelName.front() == 'u')
+      if (in_channelName.front() == 'u' || in_channelName.front() == 'U')
       {
          const std::string channelNum = in_channelName.substr(1);
          return std::make_pair(ChannelType::U, std::stoi(channelNum)); 
@@ -232,78 +232,111 @@ namespace QuaC {
 
       {
          // Step 2: set up the Hamiltonian
-         // TODO: Parse the QObj to get the Hamiltonian params
-         // For now, just do it manually for the 1 and 2 Q hamiltonian
-         if (backendName == "Fake1Q")
+         if (in_params.stringExists("hamiltonian"))
          {
-            // The Hamiltonian is (use the one from arXiv): 
-            // H = -pi*v0*sigma_z + D(t)*sigma_x  
-            // Time-independent terms:
-            assert(backendConfig.loFregs_dChannels.size() == 1);
-            XACC_QuaC_AddConstHamiltonianTerm1("Z", 0, { -M_PI * backendConfig.loFregs_dChannels[0], 0.0});    
+            const auto hamiltonianJson = in_params.getString("hamiltonian");         
+            auto parser = xacc::getService<QuaC::HamiltonianParsingUtil>("default");
             
-            // Time-dependent term (drive channel 0):
-            // Note: we calibrate this fake one qubit system to work well with the QObj data that we have
-            // from another device. 
-            const double tdCoeff = 1.5; 
-            XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), tdCoeff);
-            
-            // Add some decay
-            XACC_QuaC_AddQubitDecay(0, kappa);     
+            std::function<void(QuaC::HamiltonianTerm&)> iterFn = [&](QuaC::HamiltonianTerm& in_term) -> void {
+               in_term.apply(this);
+            };
+
+            if (!parser->tryParse(hamiltonianJson, iterFn))
+            {
+               xacc::error("Failed to parse the Hamiltonian!");
+            }
+
+            for (int i = 0; i < buffer->size(); ++i)
+            {
+               XACC_QuaC_AddQubitDecay(i, kappa);
+            }
          }
-         else if (backendName == "Fake2Q")
+         else
          {
-            // The Hamiltonian is: 
-            // Notation: 
-            // {'X': sigmax, 'Y': sigmay, 'Z': sigmaz,
-            //   'Sp': create, 'Sm': destroy, 'I': qeye,
-            //   'O': num, 'P': project, 'A': destroy,
-            //   'C': create, 'N': num}
-            // ["np.pi*(2*v0-alpha0)*O0", "np.pi*alpha0*O0*O0", "2*np.pi*r*X0||D0",
-            //  "2*np.pi*r*X0||U1", "2*np.pi*r*X1||U0", "np.pi*(2*v1-alpha1)*O1",
-            //  "np.pi*alpha1*O1*O1", "2*np.pi*r*X1||D1", "2*np.pi*j*(Sp0*Sm1+Sm0*Sp1)"],
-            
-            // Time-independent terms:
+           // TODO: clean up this code
+           // Some special case handling, to be removed
+            if (backendName == "Fake1Q")
             {
-               const double v0 = 5.00;
-               const double v1 = 5.10;
-               const double alpha0 = -0.33;
-               const double alpha1 = -0.33;
-               const double j = 0.01;
-               XACC_QuaC_AddConstHamiltonianTerm1("O", 0, { M_PI * (2*v0-alpha0), 0.0 });
-               XACC_QuaC_AddConstHamiltonianTerm2("O", 0, "O", 0, { M_PI * alpha0, 0.0});        
-               XACC_QuaC_AddConstHamiltonianTerm1("O", 1, { M_PI * (2*v1-alpha1), 0.0 });
-               XACC_QuaC_AddConstHamiltonianTerm2("O", 1, "O", 1, { M_PI * alpha1, 0.0});      
-               XACC_QuaC_AddConstHamiltonianTerm2("SP", 0, "SM", 1, { 2.0 * M_PI * j, 0.0});      
-               XACC_QuaC_AddConstHamiltonianTerm2("SM", 0, "SP", 1, { 2.0 * M_PI * j, 0.0});
-            }
-            // Time-dependent terms
-            // TODO: we should add the multiplication coefficient to the API 
-            {
-               // Reference: https://github.com/Qiskit/qiskit-terra/blob/13bc243364553667f6410b9a2f7a315c90bb598f/qiskit/test/mock/fake_openpulse_2q.py
-               const double r = 0.02;
-               // Drive channel D0: 2*np.pi*r*X0||D0
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), 2 * M_PI * r);
+               // The Hamiltonian is (use the one from arXiv): 
+               // H = -pi*v0*sigma_z + D(t)*sigma_x  
+               // Time-independent terms:
+               assert(backendConfig.loFregs_dChannels.size() == 1);
+               XACC_QuaC_AddConstHamiltonianTerm1("Z", 0, { -M_PI * backendConfig.loFregs_dChannels[0], 0.0});    
                
-               // D1: 2*np.pi*r*X1||D1
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetDriveChannelId(1), 2 * M_PI * r);
+               // Time-dependent term (drive channel 0):
+               // Note: we calibrate this fake one qubit system to work well with the QObj data that we have
+               // from another device. 
+               const double tdCoeff = 1.5; 
+               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), tdCoeff);
                
-               // U0: 2*np.pi*r*X1||U0
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetControlChannelId(0), 2 * M_PI * r);
-
-               // U1: 2*np.pi*r*X0||U1              
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetControlChannelId(1), 2 * M_PI * r);
-            }
-
-            {
                // Add some decay
                XACC_QuaC_AddQubitDecay(0, kappa);     
-               XACC_QuaC_AddQubitDecay(1, kappa);     
             }
-         }        
+            else if (backendName == "Fake2Q")
+            {
+               // The Hamiltonian is: 
+               // Notation: 
+               // {'X': sigmax, 'Y': sigmay, 'Z': sigmaz,
+               //   'Sp': create, 'Sm': destroy, 'I': qeye,
+               //   'O': num, 'P': project, 'A': destroy,
+               //   'C': create, 'N': num}
+               // ["np.pi*(2*v0-alpha0)*O0", "np.pi*alpha0*O0*O0", "2*np.pi*r*X0||D0",
+               //  "2*np.pi*r*X0||U1", "2*np.pi*r*X1||U0", "np.pi*(2*v1-alpha1)*O1",
+               //  "np.pi*alpha1*O1*O1", "2*np.pi*r*X1||D1", "2*np.pi*j*(Sp0*Sm1+Sm0*Sp1)"],
+               
+               // Time-independent terms:
+               {
+                  const double v0 = 5.00;
+                  const double v1 = 5.10;
+                  const double alpha0 = -0.33;
+                  const double alpha1 = -0.33;
+                  const double j = 0.01;
+                  XACC_QuaC_AddConstHamiltonianTerm1("O", 0, { M_PI * (2*v0-alpha0), 0.0 });
+                  XACC_QuaC_AddConstHamiltonianTerm2("O", 0, "O", 0, { M_PI * alpha0, 0.0});        
+                  XACC_QuaC_AddConstHamiltonianTerm1("O", 1, { M_PI * (2*v1-alpha1), 0.0 });
+                  XACC_QuaC_AddConstHamiltonianTerm2("O", 1, "O", 1, { M_PI * alpha1, 0.0});      
+                  XACC_QuaC_AddConstHamiltonianTerm2("SP", 0, "SM", 1, { 2.0 * M_PI * j, 0.0});      
+                  XACC_QuaC_AddConstHamiltonianTerm2("SM", 0, "SP", 1, { 2.0 * M_PI * j, 0.0});
+               }
+               // Time-dependent terms
+               // TODO: we should add the multiplication coefficient to the API 
+               {
+                  // Reference: https://github.com/Qiskit/qiskit-terra/blob/13bc243364553667f6410b9a2f7a315c90bb598f/qiskit/test/mock/fake_openpulse_2q.py
+                  const double r = 0.02;
+                  // Drive channel D0: 2*np.pi*r*X0||D0
+                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), 2 * M_PI * r);
+                  
+                  // D1: 2*np.pi*r*X1||D1
+                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetDriveChannelId(1), 2 * M_PI * r);
+                  
+                  // U0: 2*np.pi*r*X1||U0
+                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetControlChannelId(0), 2 * M_PI * r);
+
+                  // U1: 2*np.pi*r*X0||U1              
+                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetControlChannelId(1), 2 * M_PI * r);
+               }
+
+               {
+                  // Add some decay
+                  XACC_QuaC_AddQubitDecay(0, kappa);     
+                  XACC_QuaC_AddQubitDecay(1, kappa);     
+               }
+            }        
+         }         
       }
    }
 
+   int PulseVisitor::GetChannelId(const std::string& in_channelName) 
+   {
+      const auto channelTypeIdPair = PulseChannelFromString(in_channelName);
+      switch (channelTypeIdPair.first)
+      {
+         case ChannelType::D: return m_pulseChannelController->GetDriveChannelId(channelTypeIdPair.second);
+         case ChannelType::U: return m_pulseChannelController->GetControlChannelId(channelTypeIdPair.second);
+      }
+
+      return -1;
+   }
 
    std::vector<std::complex<double>> PulseVisitor::PulseSamplesToComplexVec(const std::vector<std::vector<double>>& in_samples)
    {

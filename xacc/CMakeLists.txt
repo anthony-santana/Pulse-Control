@@ -11,7 +11,7 @@ add_compile_definitions(ENABLE_MOCKING)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Mock)
 
 file (GLOB HEADERS *.hpp)
-file (GLOB SRC *.cpp Accelerator/*.cpp)
+file (GLOB SRC *.cpp Accelerator/*.cpp Utils/*.cpp)
 
 usFunctionGetResourceSource(TARGET ${LIBRARY_NAME} OUT SRC)
 usFunctionGenerateBundleInit(TARGET ${LIBRARY_NAME} OUT SRC)
@@ -39,6 +39,7 @@ message ("XACC_QUAC_BASE_INCLUDE_DIR = ${XACC_QUAC_BASE_INCLUDE_DIR}")
 
 target_include_directories(${LIBRARY_NAME} PUBLIC   . 
                                                     ./Accelerator
+                                                    ./Utils
                                                     ${QUAC_INCLUDE_DIRS}
                                                     ${XACC_QUAC_BASE_INCLUDE_DIR})
 

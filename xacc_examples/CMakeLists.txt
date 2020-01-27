@@ -10,3 +10,6 @@ target_link_libraries(pulse_command_def PRIVATE xacc_quac xacc::quantum_gate)
 
 add_executable(q_ctrl_pulses q_ctrl_pulses.cpp)
 target_link_libraries(q_ctrl_pulses PRIVATE xacc_quac xacc::quantum_gate)
+
+add_executable(hamiltonian_json_input hamiltonian_json_input.cpp)
+target_link_libraries(hamiltonian_json_input PRIVATE xacc_quac xacc::quantum_gate)
