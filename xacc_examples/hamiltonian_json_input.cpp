@@ -31,7 +31,7 @@ int main (int argc, char** argv) {
         }
     )";
 
-    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("sim-mode", "Pulse"), std::make_pair("backend", backendName), std::make_pair("hamiltonian", hamiltonianJson) });    
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("backend", backendName), std::make_pair("hamiltonian", hamiltonianJson) });    
 
     auto qubitReg = xacc::qalloc(2);    
 

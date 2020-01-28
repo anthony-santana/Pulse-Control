@@ -14,7 +14,7 @@ int main (int argc, char** argv) {
     // Use the mock 1Q backend
     const std::string backendName = "Fake1Q";
    
-    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("sim-mode", "Pulse"), std::make_pair("backend", backendName), std::make_pair("config-json-path", "/home/cades/dev/xacc/quantum/gate/ir/tests/files/test_backends.json") });    
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("backend", backendName), std::make_pair("config-json-path", "/home/cades/dev/xacc/quantum/gate/ir/tests/files/test_backends.json") });    
 
     // Create a simple pulse program using IR
     auto provider = xacc::getIRProvider("quantum");

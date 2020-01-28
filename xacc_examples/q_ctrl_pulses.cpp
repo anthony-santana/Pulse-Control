@@ -13,7 +13,7 @@ int main (int argc, char** argv) {
     // Use our fake 1Q system backend
     // TODO: eventually, we need to be able to specify a backend here (with its Hamiltonian, device dt, and LO freqs, etc.)
     const std::string backendName = "Fake1Q";
-    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("sim-mode", "Pulse"), std::make_pair("backend", backendName) });    
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("backend", backendName) });    
 
 
     // Create a simple pulse program using IR
