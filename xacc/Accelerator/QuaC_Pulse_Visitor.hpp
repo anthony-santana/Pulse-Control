@@ -20,7 +20,6 @@ namespace QuaC {
         void solve();
         void finalize();
         virtual std::shared_ptr<PulseVisitor> clone() { return std::make_shared<PulseVisitor>(); }
-        static std::vector<std::complex<double>> PulseSamplesToComplexVec(const std::vector<std::vector<double>>& in_samples);
         virtual int GetChannelId(const std::string& in_channelName) override;
         // Gate visit
         void visit(Hadamard& h) override;

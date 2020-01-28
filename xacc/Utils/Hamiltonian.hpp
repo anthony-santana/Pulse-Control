@@ -67,29 +67,30 @@ public:
     // Apply the Hamiltonian term to the backend.
     virtual void apply(IChannelNameResolver* in_channelResolver) = 0;
     virtual ~HamiltonianTerm() {}
+    virtual std::unique_ptr<HamiltonianTerm> clone() = 0;
 };
 
 class HamiltonianSumTerm: public HamiltonianTerm
 {
 public:
-    static std::unique_ptr<HamiltonianSumTerm> fromString(const std::string& in_string, const VarsMap& in_vars);
+    static std::unique_ptr<HamiltonianTerm> fromString(const std::string& in_string, const VarsMap& in_vars);
 
-    HamiltonianSumTerm(std::vector<std::unique_ptr<HamiltonianTerm>>&& terms, bool isTimeDependent):
-        m_terms(std::move(terms)), 
-        m_isTimeDependent(isTimeDependent)
+    HamiltonianSumTerm(std::vector<std::unique_ptr<HamiltonianTerm>>&& terms):
+        m_terms(std::move(terms))
     {}
 
     virtual void apply(IChannelNameResolver* in_channelResolver) override;
+    
+    virtual std::unique_ptr<HamiltonianTerm> clone() override;
 
 private:
     std::vector<std::unique_ptr<HamiltonianTerm>> m_terms;
-    bool m_isTimeDependent;
 };
 
 class HamiltonianTimeIndependentTerm: public HamiltonianTerm
 {
 public:
-    static std::unique_ptr<HamiltonianTimeIndependentTerm> fromString(const std::string& in_string, const VarsMap& in_vars);
+    static std::unique_ptr<HamiltonianTerm> fromString(const std::string& in_string, const VarsMap& in_vars);
 
     HamiltonianTimeIndependentTerm(const std::complex<double>& in_coeff, const std::vector<QubitOp>& in_ops):
         m_coefficient(in_coeff),
@@ -97,6 +98,8 @@ public:
     {}
     
     virtual void apply(IChannelNameResolver* in_channelResolver) override;
+
+    virtual std::unique_ptr<HamiltonianTerm> clone() override;
 
 private:
     std::complex<double> m_coefficient;
@@ -107,7 +110,7 @@ class HamiltonianTimeDependentTerm: public HamiltonianTerm
 {
 public:    
     // Format <op>||<ch> (channel is Di or Ui)
-    static std::unique_ptr<HamiltonianTimeDependentTerm> fromString(const std::string& in_string, const VarsMap& in_vars);
+    static std::unique_ptr<HamiltonianTerm> fromString(const std::string& in_string, const VarsMap& in_vars);
     
     HamiltonianTimeDependentTerm(const std::string& in_channelName, double in_coeff, const QubitOp& in_op):
         m_channelName(in_channelName),
@@ -116,6 +119,8 @@ public:
     {}
 
     virtual void apply(IChannelNameResolver* in_channelResolver) override;
+    
+    virtual std::unique_ptr<HamiltonianTerm> clone() override;
 
 private:
     std::string m_channelName;

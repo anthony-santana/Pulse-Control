@@ -2,20 +2,38 @@
 #include "QuaC_Pulse_Visitor.hpp"
 #include "json.hpp"
 #include "Pulse.hpp"
+#include "PulseSystemModel.hpp"
 
 namespace QuaC {
     void QuaC_Accelerator::initialize(const HeterogeneousMap& params)  
-    {
+    {        
         if (params.stringExists("config-json-path"))
         {
             const auto jsonFileName = params.getString("config-json-path");
             std::ifstream backendFile(jsonFileName);
             std::string jjson((std::istreambuf_iterator<char>(backendFile)), std::istreambuf_iterator<char>());
-            // Add those pulses in the library as intructions.
+            // Contribute all the pulse instruction defined in the config file.
             contributeInstructions(jjson);
+            m_systemModel = std::make_shared<PulseSystemModel>();
+            if (!m_systemModel->fromQobjectJson(jjson))
+            {
+                xacc::error("Failed to initialize pulse system model from the JSON file.");
+                return;
+            }
         }
-
-        m_params = params;
+        else if (params.getPointerLike<PulseSystemModel>("system-model")) 
+        {
+            auto systemModel = params.getPointerLike<PulseSystemModel>("system-model");
+            m_systemModel = std::shared_ptr<PulseSystemModel>(systemModel);
+        } 
+        else
+        {
+            xacc::error("Either a PulseSystemModel object or a path to the JSON configs file is required.");
+            return;
+        }
+        
+        assert(m_systemModel);
+        m_params = params;       
         m_pulseVisitor = std::make_shared<PulseVisitor>();
     }
 
@@ -76,7 +94,7 @@ namespace QuaC {
                 counter++;
                 
                 {
-                    const auto pulseSamples = QuaC::PulseVisitor::PulseSamplesToComplexVec(samples);
+                    const auto pulseSamples = PulseSamplesToComplexVec(samples);
                     if (!pulseSamples.empty())
                     {
                         const auto result = m_importedPulses.emplace(pulse_name, std::move(pulseSamples));

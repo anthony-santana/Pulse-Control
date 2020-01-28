@@ -13,6 +13,8 @@
 // Ref 5.1.5
 using PulseLib = std::unordered_map<std::string, std::vector<std::complex<double>>>;
 
+std::vector<std::complex<double>> PulseSamplesToComplexVec(const std::vector<std::vector<double>>& in_samples);
+
 // Ref 5.1.1 (channel data only, Hamiltonian/backend device dynamic is not captured here)
 struct BackendChannelConfigs
 {

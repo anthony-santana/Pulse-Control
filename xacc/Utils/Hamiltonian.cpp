@@ -74,6 +74,46 @@ namespace {
         out_subString = in_str.substr(0, pos);
         return true;
     }
+    // Unwrap expression of type blabla*(A +/- B) into blabla*A +/- blabla*B 
+    std::vector<std::string> UnwrapOpExpresion(const std::string& in_str)
+    {
+        if (in_str.back() != ')')
+        {
+            return {};
+        }
+
+        const auto pos = in_str.find_last_of("(");
+        
+        if (pos == std::string::npos)
+        {
+            return {};
+        }
+
+        std::string coeffExpr = in_str.substr(0, pos);
+        std::string wrappedExpr = in_str.substr(pos + 1);
+        // remove the last ')' character
+        wrappedExpr.pop_back();
+
+        const auto check1 = wrappedExpr.find_first_of("(");
+        const auto check2 = wrappedExpr.find_first_of(")");
+        if (check1 != std::string::npos || check2 != std::string::npos)
+        {
+            // Perhaps a nested one, we cannot parse atm
+            return {};
+        }
+        const auto pmPos = wrappedExpr.find_first_of("+") == std::string::npos ? wrappedExpr.find_first_of("-") : wrappedExpr.find_first_of("+");
+        
+        if (pmPos != std::string::npos)
+        {
+            std::string expr1 = wrappedExpr.substr(0, pmPos);
+            std::string expr2 = wrappedExpr.substr(pmPos + 1);
+            // (1.0)* or (-1.0)*
+            const std::string signExpr = "(" + std::string(1, wrappedExpr.at(pmPos)) + "1.0)*";
+            return { coeffExpr + expr1, coeffExpr + signExpr + expr2 };
+        }
+
+        return {};
+    }
 
     bool TryEvaluateExpression(const std::string& in_exprString, const QuaC::VarsMap& in_vars, double& out_result)
     {
@@ -105,7 +145,7 @@ namespace {
 }
 
 namespace QuaC { 
-std::unique_ptr<HamiltonianTimeDependentTerm> HamiltonianTimeDependentTerm::fromString(const std::string& in_string, const VarsMap& in_vars) 
+std::unique_ptr<HamiltonianTerm> HamiltonianTimeDependentTerm::fromString(const std::string& in_string, const VarsMap& in_vars) 
 {
     auto exprStr = removeWhiteSpaces(in_string);
     // Find the special '||' channel separator
@@ -124,6 +164,28 @@ std::unique_ptr<HamiltonianTimeDependentTerm> HamiltonianTimeDependentTerm::from
     
     const auto operatorExpression = exprStr.substr(0, separatorPos);
 
+    if (operatorExpression.back() == ')')
+    {
+        auto splitExprs = UnwrapOpExpresion(operatorExpression);
+        if (splitExprs.size() != 2)
+        {
+            return nullptr;
+        }
+
+        auto expr1 = fromString(splitExprs[0] + exprStr.substr(separatorPos), in_vars);
+        auto expr2 = fromString(splitExprs[1] + exprStr.substr(separatorPos), in_vars);
+        if (expr1 == nullptr || expr2  == nullptr)
+        {
+            return nullptr;
+        }
+
+        std::vector<std::unique_ptr<HamiltonianTerm>> terms;
+        terms.emplace_back(std::move(expr1));
+        terms.emplace_back(std::move(expr2));
+
+        return std::unique_ptr<HamiltonianTerm>(new HamiltonianSumTerm(std::move(terms)));
+    }
+
     std::string opConstExpr;
     QubitOp resultOp;
     if (!GetLastOperator(operatorExpression, resultOp, opConstExpr))
@@ -140,7 +202,7 @@ std::unique_ptr<HamiltonianTimeDependentTerm> HamiltonianTimeDependentTerm::from
     return std::make_unique<HamiltonianTimeDependentTerm>(channelName, evaled, resultOp);
 }
 
-std::unique_ptr<HamiltonianTimeIndependentTerm> HamiltonianTimeIndependentTerm::fromString(const std::string& in_string, const VarsMap& in_vars)
+std::unique_ptr<HamiltonianTerm> HamiltonianTimeIndependentTerm::fromString(const std::string& in_string, const VarsMap& in_vars)
 {
     auto exprStr = removeWhiteSpaces(in_string);
 
@@ -150,6 +212,29 @@ std::unique_ptr<HamiltonianTimeIndependentTerm> HamiltonianTimeIndependentTerm::
     {
         return nullptr;
     }
+
+    if (exprStr.back() == ')')
+    {
+        auto splitExprs = UnwrapOpExpresion(exprStr);
+        if (splitExprs.size() != 2)
+        {
+            return nullptr;
+        }
+
+        auto expr1 = fromString(splitExprs[0], in_vars);
+        auto expr2 = fromString(splitExprs[1], in_vars);
+        if (expr1 == nullptr || expr2  == nullptr)
+        {
+            return nullptr;
+        }
+
+        std::vector<std::unique_ptr<HamiltonianTerm>> terms;
+        terms.emplace_back(std::move(expr1));
+        terms.emplace_back(std::move(expr2));
+
+        return std::unique_ptr<HamiltonianTerm>(new HamiltonianSumTerm(std::move(terms)));
+    }
+
     std::vector<QubitOp> operators;
 
     QubitOp tempOp;
@@ -173,7 +258,7 @@ std::unique_ptr<HamiltonianTimeIndependentTerm> HamiltonianTimeIndependentTerm::
     return std::make_unique<HamiltonianTimeIndependentTerm>(evaled, operators);
 }
 
-std::unique_ptr<HamiltonianSumTerm> HamiltonianSumTerm::fromString(const std::string& in_string, const VarsMap& in_vars)
+std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::fromString(const std::string& in_string, const VarsMap& in_vars)
 {
     static const std::string SUM_TERM_PREFIX = "_SUM[";
     auto exprStr = removeWhiteSpaces(in_string);
@@ -243,7 +328,7 @@ std::unique_ptr<HamiltonianSumTerm> HamiltonianSumTerm::fromString(const std::st
     const auto tryTimeIndependent = HamiltonianTimeIndependentTerm::fromString(resolvedExpression, in_vars);
     const auto tryTimeDependent = HamiltonianTimeDependentTerm::fromString(resolvedExpression, in_vars);
 
-    if (tryTimeDependent == nullptr && tryTimeDependent == nullptr)
+    if (tryTimeIndependent == nullptr && tryTimeDependent == nullptr)
     {
         return nullptr;
     }
@@ -273,7 +358,7 @@ std::unique_ptr<HamiltonianSumTerm> HamiltonianSumTerm::fromString(const std::st
         loopOps.emplace_back(std::move(result));
     }
 
-    return std::make_unique<HamiltonianSumTerm>(std::move(loopOps), isTimeDependent);
+    return std::make_unique<HamiltonianSumTerm>(std::move(loopOps));
 }
 
 void HamiltonianTimeIndependentTerm::apply(IChannelNameResolver* in_channelResolver)
@@ -310,6 +395,27 @@ void HamiltonianSumTerm::apply(IChannelNameResolver* in_channelResolver)
     }
 }
 
+std::unique_ptr<HamiltonianTerm> HamiltonianTimeIndependentTerm::clone()
+{
+    return std::unique_ptr<HamiltonianTerm>(new HamiltonianTimeIndependentTerm(m_coefficient, m_operators)); 
+}
+
+std::unique_ptr<HamiltonianTerm> HamiltonianTimeDependentTerm::clone()
+{
+    return std::unique_ptr<HamiltonianTerm>(new HamiltonianTimeDependentTerm(m_channelName, m_coefficient, m_operator)); 
+}
+
+std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::clone()
+{
+    std::vector<std::unique_ptr<HamiltonianTerm>> clones;
+    for (auto& term : m_terms)
+    {
+        clones.emplace_back(term->clone());
+    }
+
+    return std::unique_ptr<HamiltonianTerm>(new HamiltonianSumTerm(std::move(clones)));
+}
+
 std::unique_ptr<HamiltonianTerm> HamiltonianParsingUtil::tryParse(const std::string& in_expr, const VarsMap& in_vars)
 {
     {
@@ -340,7 +446,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianParsingUtil::tryParse(const std::str
         }
     }
     
-    xacc::warning("Cannot parse Hamiltonian string " + in_expr);
+    std::cout << "Cannot parse Hamiltonian string " << in_expr << "\n";
     return nullptr;
 }
 
@@ -366,7 +472,7 @@ bool HamiltonianParsingUtil::tryParse(const std::string& in_jsonString, std::fun
     for (auto hamStrIter = hamStrArray.begin(); hamStrIter != hamStrArray.end(); ++hamStrIter) 
     {
         auto hamStr = (*hamStrIter).get<std::string>();
-        // std::cout << "Hamiltonian term: " << hamStr << "\n";
+        std::cout << "Hamiltonian term: " << hamStr << "\n";
         auto parseResult = tryParse(hamStr, vars);
         if (parseResult == nullptr)
         {

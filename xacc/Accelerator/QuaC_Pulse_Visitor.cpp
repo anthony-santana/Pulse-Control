@@ -370,35 +370,6 @@ namespace QuaC {
       return -1;
    }
 
-   std::vector<std::complex<double>> PulseVisitor::PulseSamplesToComplexVec(const std::vector<std::vector<double>>& in_samples)
-   {
-      std::vector<std::complex<double>> pulseSamples;
-      pulseSamples.reserve(in_samples.size());
-      for (const auto& sample : in_samples)
-      {
-         if (sample.empty())
-         {
-            pulseSamples.emplace_back(0.0);
-         }
-         else if (sample.size() == 1)
-         {
-            pulseSamples.emplace_back(sample[0]);
-         }
-         else if (sample.size() == 2)
-         {
-            pulseSamples.emplace_back(std::complex<double>{ sample[0], sample[1] });
-         }
-         else
-         {
-            // Malformed
-            std::cout << "Invalid data encountered while processing pulse samples.\n";
-            return {};
-         }                        
-      }
-
-      return pulseSamples;
-   }
-
    void PulseVisitor::schedulePulses(const std::shared_ptr<CompositeInstruction>& in_pulseInstruction) 
    {
       // Check if any raw pulse instructions are referring to pulse from the library,

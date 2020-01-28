@@ -9,6 +9,7 @@ using namespace xacc::quantum;
 
 namespace QuaC {
     class PulseVisitor;
+    class PulseSystemModel;
     class QuaC_Accelerator : public Accelerator {
 
     public:
@@ -27,7 +28,7 @@ namespace QuaC {
         virtual void execute(std::shared_ptr<AcceleratorBuffer> buffer, const std::vector<std::shared_ptr<CompositeInstruction>> compositeInstructions) override;
     private:    
         HeterogeneousMap m_params;
-        // TODO: unify the Pulse backend API
+        std::shared_ptr<PulseSystemModel> m_systemModel; 
         std::shared_ptr<PulseVisitor> m_pulseVisitor;
         std::unordered_map<std::string, std::vector<std::complex<double>>> m_importedPulses;
     };
