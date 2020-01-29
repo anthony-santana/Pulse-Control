@@ -39,7 +39,7 @@ namespace QuaC {
 
     void QuaC_Accelerator::execute(std::shared_ptr<AcceleratorBuffer> buffer, const std::shared_ptr<CompositeInstruction> compositeInstruction)  
     {
-        m_pulseVisitor->initialize(buffer, m_params, m_importedPulses);
+        m_pulseVisitor->initialize(buffer, m_systemModel.get(), m_params);
         // Walk the IR tree, and visit each node
         InstructionIterator it(compositeInstruction);
         while (it.hasNext()) 
@@ -92,18 +92,6 @@ namespace QuaC {
                 pulse->setSamples(samples);
                 xacc::contributeService(pulse_name, pulse);
                 counter++;
-                
-                {
-                    const auto pulseSamples = PulseSamplesToComplexVec(samples);
-                    if (!pulseSamples.empty())
-                    {
-                        const auto result = m_importedPulses.emplace(pulse_name, std::move(pulseSamples));
-                        if (!result.second)
-                        {
-                            std::cout << "Duplicate pulse with the same name '" << pulse_name << "'. The new one will be ignored.\n";
-                        }
-                    }
-                }                
             }
 
             // Import command defs (sequence of pulses)

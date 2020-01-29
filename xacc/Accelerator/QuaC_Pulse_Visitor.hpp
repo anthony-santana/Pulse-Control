@@ -13,10 +13,11 @@ using namespace xacc;
 using namespace xacc::quantum;
 
 namespace QuaC {    
+    class PulseSystemModel;
     class PulseVisitor : public AllGateVisitor, public InstructionVisitor<Pulse>, public OptionsProvider, public Cloneable<PulseVisitor>, public IChannelNameResolver
     {
     public:
-        void initialize(std::shared_ptr<AcceleratorBuffer> buffer, const HeterogeneousMap& in_params = {}, const PulseLib& in_importedPulses = {});
+        void initialize(std::shared_ptr<AcceleratorBuffer> buffer, PulseSystemModel* in_systemModel, const HeterogeneousMap& in_params = {});
         void solve();
         void finalize();
         virtual std::shared_ptr<PulseVisitor> clone() { return std::make_shared<PulseVisitor>(); }
@@ -50,5 +51,6 @@ namespace QuaC {
     private:
         std::unique_ptr<PulseChannelController> m_pulseChannelController;
         std::shared_ptr<CompositeInstruction> m_pulseComposite;
+        PulseSystemModel* m_systemModel; 
     };    
 }

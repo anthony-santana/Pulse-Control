@@ -5,15 +5,11 @@
 #include <iomanip>
 #include <cassert>
 #include "Scheduler.hpp"
+#include "PulseSystemModel.hpp"
 
 extern "C" {
 #include "interface_xacc_ir.h"
 }
-
-#ifdef ENABLE_MOCKING
-#include "FakeOpenPulse1Q.hpp"
-#include "FakeOpenPulse2Q.hpp"
-#endif
 
 namespace {
    void writeTimesteppingDataToCsv(const std::string& in_fileName, const TSData* const in_tsData, int in_nbSteps)
@@ -203,57 +199,21 @@ namespace {
 #define EXPORT_TS_DATA_AS_CSV
 
 namespace QuaC {   
-   void PulseVisitor::initialize(std::shared_ptr<AcceleratorBuffer> buffer, const HeterogeneousMap& in_params, const PulseLib& in_importedPulses) 
+   void PulseVisitor::initialize(std::shared_ptr<AcceleratorBuffer> buffer, PulseSystemModel* in_systemModel, const HeterogeneousMap& in_params) 
    {
       // Debug
       std::cout << "Initialize Pulse simulator \n";
       auto provider = xacc::getIRProvider("quantum");
       // Should create a hash name here:
       m_pulseComposite = provider->createComposite("PulseComposite");
+      m_systemModel = in_systemModel;
 
       // TODO: we can convert the T1 data from backend data to this param
       double kappa = 1e-64;
-      BackendChannelConfigs backendConfig;
-      std::string backendName;
-      if(in_params.stringExists("backend"))
-      {
-         backendName = in_params.getString("backend");         
-         if (backendName == "Fake1Q")
-         {
-            FakePulse1Q fakePulse;
-            backendConfig = fakePulse.backendConfig;
-         }
-         else if (backendName == "Fake2Q")
-         {
-            FakePulse2Q fakePulse;
-            backendConfig = fakePulse.backendConfig;
-         }
-         else
-         {
-            xacc::error("Unknown backend named '" + backendName + "'.\n");
-         }
-      } 
-      else 
-      {
-         xacc::error("No backend specified. Exiting...\n");
-      }
       
-      // ===================================================================================================   
-      // Test code: Import those pulses from ibmq_poughkeepsie backend for testing.
-      // Note: we just import the pulse library (i.e. list of samples), not simulate its whole Hamiltonian.
-      //====================================================================================================
-      // We should eventually import everything from Json file, for now, we mock the dynamic (i.e. Hamiltonian)
-      // but import real pulse library to test the integration.
-      for (const auto& importedPulse : in_importedPulses)
-      {
-         backendConfig.addOrReplacePulse(importedPulse.first, importedPulse.second);
-      }
-      //===============================================================================================
-
-
       // Initialize the pulse constroller:
       // Create a pulse controller
-      m_pulseChannelController = std::make_unique<PulseChannelController>(backendConfig);
+      m_pulseChannelController = std::make_unique<PulseChannelController>(m_systemModel->getChannelConfigs());
       
       {
          // Step 1: Initialize the QuaC solver
@@ -264,97 +224,16 @@ namespace QuaC {
 
       {
          // Step 2: set up the Hamiltonian
-         if (in_params.stringExists("hamiltonian"))
+         for (const auto& term : m_systemModel->getHamiltonian().getTerms())
          {
-            const auto hamiltonianJson = in_params.getString("hamiltonian");         
-            auto parser = xacc::getService<QuaC::HamiltonianParsingUtil>("default");
-            
-            std::function<void(QuaC::HamiltonianTerm&)> iterFn = [&](QuaC::HamiltonianTerm& in_term) -> void {
-               in_term.apply(this);
-            };
-
-            if (!parser->tryParse(hamiltonianJson, iterFn))
-            {
-               xacc::error("Failed to parse the Hamiltonian!");
-            }
-
-            for (int i = 0; i < buffer->size(); ++i)
-            {
-               XACC_QuaC_AddQubitDecay(i, kappa);
-            }
+            term->apply(this);
          }
-         else
+
+         // TODO: try to track down why QuaC is throwing exceptions if there is no decay!!!
+         for (int i = 0; i < buffer->size(); ++i)
          {
-           // TODO: clean up this code
-           // Some special case handling, to be removed
-            if (backendName == "Fake1Q")
-            {
-               // The Hamiltonian is (use the one from arXiv): 
-               // H = -pi*v0*sigma_z + D(t)*sigma_x  
-               // Time-independent terms:
-               assert(backendConfig.loFregs_dChannels.size() == 1);
-               XACC_QuaC_AddConstHamiltonianTerm1("Z", 0, { -M_PI * backendConfig.loFregs_dChannels[0], 0.0});    
-               
-               // Time-dependent term (drive channel 0):
-               // Note: we calibrate this fake one qubit system to work well with the QObj data that we have
-               // from another device. 
-               const double tdCoeff = 1.5; 
-               XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), tdCoeff);
-               
-               // Add some decay
-               XACC_QuaC_AddQubitDecay(0, kappa);     
-            }
-            else if (backendName == "Fake2Q")
-            {
-               // The Hamiltonian is: 
-               // Notation: 
-               // {'X': sigmax, 'Y': sigmay, 'Z': sigmaz,
-               //   'Sp': create, 'Sm': destroy, 'I': qeye,
-               //   'O': num, 'P': project, 'A': destroy,
-               //   'C': create, 'N': num}
-               // ["np.pi*(2*v0-alpha0)*O0", "np.pi*alpha0*O0*O0", "2*np.pi*r*X0||D0",
-               //  "2*np.pi*r*X0||U1", "2*np.pi*r*X1||U0", "np.pi*(2*v1-alpha1)*O1",
-               //  "np.pi*alpha1*O1*O1", "2*np.pi*r*X1||D1", "2*np.pi*j*(Sp0*Sm1+Sm0*Sp1)"],
-               
-               // Time-independent terms:
-               {
-                  const double v0 = 5.00;
-                  const double v1 = 5.10;
-                  const double alpha0 = -0.33;
-                  const double alpha1 = -0.33;
-                  const double j = 0.01;
-                  XACC_QuaC_AddConstHamiltonianTerm1("O", 0, { M_PI * (2*v0-alpha0), 0.0 });
-                  XACC_QuaC_AddConstHamiltonianTerm2("O", 0, "O", 0, { M_PI * alpha0, 0.0});        
-                  XACC_QuaC_AddConstHamiltonianTerm1("O", 1, { M_PI * (2*v1-alpha1), 0.0 });
-                  XACC_QuaC_AddConstHamiltonianTerm2("O", 1, "O", 1, { M_PI * alpha1, 0.0});      
-                  XACC_QuaC_AddConstHamiltonianTerm2("SP", 0, "SM", 1, { 2.0 * M_PI * j, 0.0});      
-                  XACC_QuaC_AddConstHamiltonianTerm2("SM", 0, "SP", 1, { 2.0 * M_PI * j, 0.0});
-               }
-               // Time-dependent terms
-               // TODO: we should add the multiplication coefficient to the API 
-               {
-                  // Reference: https://github.com/Qiskit/qiskit-terra/blob/13bc243364553667f6410b9a2f7a315c90bb598f/qiskit/test/mock/fake_openpulse_2q.py
-                  const double r = 0.02;
-                  // Drive channel D0: 2*np.pi*r*X0||D0
-                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetDriveChannelId(0), 2 * M_PI * r);
-                  
-                  // D1: 2*np.pi*r*X1||D1
-                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetDriveChannelId(1), 2 * M_PI * r);
-                  
-                  // U0: 2*np.pi*r*X1||U0
-                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 1, m_pulseChannelController->GetControlChannelId(0), 2 * M_PI * r);
-
-                  // U1: 2*np.pi*r*X0||U1              
-                  XACC_QuaC_AddTimeDependentHamiltonianTerm1("X", 0, m_pulseChannelController->GetControlChannelId(1), 2 * M_PI * r);
-               }
-
-               {
-                  // Add some decay
-                  XACC_QuaC_AddQubitDecay(0, kappa);     
-                  XACC_QuaC_AddQubitDecay(1, kappa);     
-               }
-            }        
-         }         
+            XACC_QuaC_AddQubitDecay(i, kappa);
+         }
       }
    }
 

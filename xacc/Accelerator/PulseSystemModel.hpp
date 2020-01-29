@@ -10,6 +10,8 @@ class HamiltonianModel
 {
 public:
     bool fromJson(const std::string& in_jsonString);
+
+    std::vector<std::unique_ptr<HamiltonianTerm>>& getTerms() { return m_terms; }
 private:
     std::vector<std::unique_ptr<HamiltonianTerm>> m_terms;
 };
@@ -35,6 +37,10 @@ public:
     // Add a command def (as a composite instruction consisting of pulse instructions)
     // Return false if failed, e.g. the pulse instruction in the composite is not a valid one.
     bool addCommandDef(const std::string& in_cmdDefName, const std::shared_ptr<xacc::CompositeInstruction>& in_pulseComposite);
+
+    BackendChannelConfigs& getChannelConfigs() { return m_channelConfigs; } 
+    
+    HamiltonianModel& getHamiltonian() { return m_hamiltonian; }
 
 private:
     std::string m_name;
