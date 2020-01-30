@@ -52,5 +52,6 @@ namespace QuaC {
         std::unique_ptr<PulseChannelController> m_pulseChannelController;
         std::shared_ptr<CompositeInstruction> m_pulseComposite;
         PulseSystemModel* m_systemModel; 
+        std::shared_ptr<AcceleratorBuffer> m_buffer;
     };    
 }

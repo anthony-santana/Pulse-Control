@@ -12,8 +12,12 @@ public:
     bool fromJson(const std::string& in_jsonString);
 
     std::vector<std::unique_ptr<HamiltonianTerm>>& getTerms() { return m_terms; }
+    void setQubitDimension(size_t in_qubitIdx, size_t in_dimension) { m_qubitDimension[in_qubitIdx] = in_dimension; }
+    size_t getQubitDimension(size_t in_qubitIdx) const;
+    
 private:
     std::vector<std::unique_ptr<HamiltonianTerm>> m_terms;
+    std::unordered_map<size_t, size_t> m_qubitDimension;
 };
 
 
@@ -45,7 +49,7 @@ public:
     // Set T1 on a qubit (this info can also be parsed from the Json)
     void setQubitT1(size_t in_qubitIdx, double in_qubitT1) { m_qubitToT1[in_qubitIdx] = in_qubitT1; }
     double getQubitT1(size_t in_qubitIdx) const;
-    
+
 private:
     std::string m_name;
     HamiltonianModel m_hamiltonian;

@@ -27,6 +27,7 @@
 cmake_minimum_required (VERSION 3.13)
 
 project (QuaC LANGUAGES C CXX)
+enable_testing()
 
 set (CMAKE_STANDARD_REQUIRED ON)
 set (CMAKE_CXX_STANDARD 14)

@@ -21,7 +21,25 @@ bool HamiltonianModel::fromJson(const std::string& in_jsonString)
         return false;
     }
 
+    auto j = nlohmann::json::parse(in_jsonString);   
+    auto qubitDimMap = j["qub"];
+    for (auto qbitIter = qubitDimMap.begin(); qbitIter != qubitDimMap.end(); ++qbitIter)
+    {
+       setQubitDimension(std::stoi(qbitIter.key()), qbitIter.value().get<size_t>());
+    }
+
     return true;
+}
+
+size_t HamiltonianModel::getQubitDimension(size_t in_qubitIdx) const 
+{
+    const auto iter = m_qubitDimension.find(in_qubitIdx);
+    if (iter == m_qubitDimension.end() || iter->second < 2)
+    {
+        return 2;
+    }
+
+    return iter->second;
 }
 
 bool PulseSystemModel::fromQobjectJson(const std::string& in_jsonString)

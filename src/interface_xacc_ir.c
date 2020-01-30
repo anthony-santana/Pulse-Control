@@ -58,6 +58,7 @@ int nbQubits;
 
 bool g_wasInitialized = false;
 int g_nbTimeDepChannels = 0;
+bool g_enableTimeSteppingDataCollection = false;
 
 #define ASSERT_QUBIT_INDEX(qubitIdx) \
     if (qubitIdx > nbQubits) \
@@ -162,22 +163,27 @@ void XACC_QuaC_Finalize()
     free(qubits);   
     destroy_dm(psi);
 
-    if (g_nbStepCount > 0)
+    if (g_enableTimeSteppingDataCollection)
     {
-        // Free population data (at each time-step)
-        for (int i = 0; i < g_nbStepCount; i++)
+        if (g_nbStepCount > 0)
         {
-            free(g_timeSteppingData[i].populations);
-            free(g_timeSteppingData[i].channelData);
+            // Free population data (at each time-step)
+            for (int i = 0; i < g_nbStepCount; i++)
+            {
+                free(g_timeSteppingData[i].populations);
+                free(g_timeSteppingData[i].channelData);
+                free(g_timeSteppingData[i].pauliExpectations);
+            }
+            // Free the array of timestepping data-structures itself.
+            free(g_timeSteppingData);
         }
-        // Free the array of timestepping data-structures itself.
-        free(g_timeSteppingData);
     }
+   
 
-    QuaC_finalize();
+    QuaC_clear();
 }
 
-int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider)
+int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider, const int* in_qbitDims)
 {
     g_simulationMode = PULSE;
     g_PulseDataProvider = in_pulseDataProvider;
@@ -192,7 +198,9 @@ int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseD
     
     for (int i = 0; i < nbQubits; i++)
     {
-        create_op(2, &qubits[i]);
+        int qubitDim = in_qbitDims[i];
+        LOG_INFO("Qubit %d : Dim = %d \n", i, qubitDim);
+        create_op(qubitDim, &qubits[i]);
         set_initial_pop(qubits[i], 0);
     }
      
@@ -240,6 +248,9 @@ void XACC_QuaC_AddConstHamiltonianTerm1(const char* in_op, int in_qubitIdx, Comp
 {
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx);
+    
+    LOG_INFO("H += (%lf + 1j*%lf)*%s%d\n", in_coeff.real, in_coeff.imag, in_op, in_qubitIdx);
+
     add_to_ham(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx], in_op));
 }
 
@@ -249,6 +260,8 @@ void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitI
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx);
     
+    LOG_INFO("H += %lf * %s%d * Channel_%d (t)\n", in_coefficient, in_op, in_qubitIdx, in_channelId);
+
     add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
     // Number of channels is the max of index + 1
     g_nbTimeDepChannels = (in_channelId + 1 > g_nbTimeDepChannels) ? in_channelId + 1 : g_nbTimeDepChannels;
@@ -260,6 +273,9 @@ void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, co
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx1);
     ASSERT_QUBIT_INDEX(in_qubitIdx2);
+    
+    LOG_INFO("H += (%lf + 1j*%lf)*%s%d*%s%d\n", in_coeff.real, in_coeff.imag, in_op1, in_qubitIdx1, in_op2, in_qubitIdx2);
+
     add_to_ham_mult2(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
 }
 
@@ -283,20 +299,32 @@ int XACC_QuaC_RunPulseSim(double in_dt, double in_stopTime, int in_stepMax, doub
     create_full_dm(&psi);
     set_dm_from_initial_pop(psi);
 
-    set_ts_monitor(g_tsDefaultMonitorFunc);
-    // Allocate an ample array for TS data.
-    // Note: the real data (channels, populations, etc.) is allocated separarely, 
-    // hence doesn't bloat the memory.
-    g_timeSteppingData =  malloc(2 * g_stepsMax * sizeof(TSData));
+    if (g_enableTimeSteppingDataCollection)
+    {
+        set_ts_monitor(g_tsDefaultMonitorFunc);
+    
+        // Allocate an ample array for TS data.
+        // Note: the real data (channels, populations, etc.) is allocated separarely, 
+        // hence doesn't bloat the memory.
+        g_timeSteppingData =  malloc(2 * g_stepsMax * sizeof(TSData));
+    }
 
     time_step(psi, 0.0, g_timeMax, g_dt, g_stepsMax);
     // Returns the population for each qubit
     int nbResults = get_num_populations();
     *out_result = malloc(nbResults * sizeof(double));
     get_populations(psi, &(*out_result)); 
-      
-    *out_nbSteps = g_nbStepCount;
-    *out_timeSteppingData = g_timeSteppingData;
+    
+    if (g_enableTimeSteppingDataCollection)
+    {    
+        *out_nbSteps = g_nbStepCount;
+        *out_timeSteppingData = g_timeSteppingData;
+    }
+    else
+    {
+        *out_nbSteps = 0;
+    }
+    
 
     return nbResults;
 }
@@ -308,18 +336,33 @@ PetscErrorCode g_tsDefaultMonitorFunc(TS ts, PetscInt step, PetscReal time, Vec 
     double *populations;
     populations = malloc(num_pop*sizeof(double));
     get_populations(dm, &populations);
+    PetscScalar expectX, expectY, expectZ;
 
     g_timeSteppingData[g_nbStepCount].time = time;
     g_timeSteppingData[g_nbStepCount].nbPops = num_pop;
     g_timeSteppingData[g_nbStepCount].populations = malloc(num_pop * sizeof(double));
     g_timeSteppingData[g_nbStepCount].nbChannels = g_nbTimeDepChannels;
     g_timeSteppingData[g_nbStepCount].channelData = malloc(g_nbTimeDepChannels * sizeof(double));
-    
+    g_timeSteppingData[g_nbStepCount].pauliExpectations = malloc(nbQubits * 3 * sizeof(double));
     memcpy(g_timeSteppingData[g_nbStepCount].populations, populations, num_pop * sizeof(double));
 
     for (int i = 0; i < g_nbTimeDepChannels; ++i)
     {
         g_timeSteppingData[g_nbStepCount].channelData[i] = g_channelFnArray[i](time);
+    }
+
+    for (int i = 0; i < nbQubits; ++i)
+    {
+        // Pauli-X
+        get_expectation_value(dm, &expectX, 1, qubits[i]->sig_x);
+        // Pauli-Y
+        get_expectation_value(dm, &expectY, 1, qubits[i]->sig_y);
+        // Pauli-Z
+        get_expectation_value(dm, &expectZ, 1, qubits[i]->sig_z);
+
+        g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3] = PetscRealPart(expectX);
+        g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 1] = PetscRealPart(expectY);
+        g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 2] = PetscRealPart(expectZ); 
     }
 
     if (nid==0)

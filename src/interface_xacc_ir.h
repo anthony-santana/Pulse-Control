@@ -33,6 +33,7 @@ typedef struct TSData {
     double* channelData;
     int nbPops;
     double* populations;
+    double* pauliExpectations;
 } TSData;
 
 typedef struct XaccPulseChannelProvider PulseChannelProvider;
@@ -58,7 +59,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_Finalize();
 // Pulse simulation initialization:
 // Note: we *solve* the master equation using QuaC, not via Monte-Carlo method.
 // Hence, we don't need to have the *shots* params.
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider, const int* in_qbitDims);
 
 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_SetLogVerbosity(log_verbosity in_verboseConfig);

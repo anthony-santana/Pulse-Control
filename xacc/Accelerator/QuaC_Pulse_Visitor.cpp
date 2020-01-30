@@ -12,7 +12,7 @@ extern "C" {
 }
 
 namespace {
-   void writeTimesteppingDataToCsv(const std::string& in_fileName, const TSData* const in_tsData, int in_nbSteps)
+   void writeTimesteppingDataToCsv(const std::string& in_fileName, const TSData* const in_tsData, int in_nbSteps, int in_nbQubits)
    {
       if (in_nbSteps < 1)
       {
@@ -61,6 +61,12 @@ namespace {
       {
          outputFile << "Population[" << j << "], ";
       }
+      
+      for(int j = 0; j < in_nbQubits; ++j)
+      {
+         outputFile << "<X[" << j << "]>, <Y[" << j << "]>, <Z[" << j << "]>, ";
+      }
+
       outputFile << "\n";
 
       // Data
@@ -79,6 +85,16 @@ namespace {
          {
             outputFile << dataAtStep.populations[j] << ", ";
          }
+         
+         // Pauli expectations
+         for(int j = 0; j < in_nbQubits; ++j)
+         {
+            for (int ii = 0; ii < 3; ++ii)
+            {
+               outputFile << dataAtStep.pauliExpectations[3*j + ii] << ", ";
+            }
+         }
+         
          outputFile << "\n";
       }
       outputFile.close();
@@ -196,7 +212,7 @@ namespace {
 
 // Export the time-stepping data to csv (e.g. for plotting)
 // Uncomment to get the data exported
-#define EXPORT_TS_DATA_AS_CSV
+// #define EXPORT_TS_DATA_AS_CSV
 
 namespace QuaC {   
    void PulseVisitor::initialize(std::shared_ptr<AcceleratorBuffer> buffer, PulseSystemModel* in_systemModel, const HeterogeneousMap& in_params) 
@@ -213,10 +229,16 @@ namespace QuaC {
       m_pulseChannelController = std::make_unique<PulseChannelController>(m_systemModel->getChannelConfigs());
       
       {
+         std::vector<int> qubitDims;
+         for (size_t i = 0; i < buffer->size(); ++i)
+         {
+            qubitDims.emplace_back(m_systemModel->getHamiltonian().getQubitDimension(i));
+         }
+
          // Step 1: Initialize the QuaC solver
-         XACC_QuaC_InitializePulseSim(buffer->size(), reinterpret_cast<PulseChannelProvider*>(m_pulseChannelController.get()));
+         XACC_QuaC_InitializePulseSim(buffer->size(), reinterpret_cast<PulseChannelProvider*>(m_pulseChannelController.get()), qubitDims.data());
          // Debug:
-         // XACC_QuaC_SetLogVerbosity(DEBUG_DIAG);
+         XACC_QuaC_SetLogVerbosity(DEBUG);
       }
 
       {
@@ -235,6 +257,8 @@ namespace QuaC {
             XACC_QuaC_AddQubitDecay(i, kappa);
          }
       }
+
+      m_buffer = buffer;
    }
 
    int PulseVisitor::GetChannelId(const std::string& in_channelName) 
@@ -380,15 +404,16 @@ namespace QuaC {
       const auto resultSize = XACC_QuaC_RunPulseSim(dt, simStopTime, stepMax, &results, &nbSteps, &tsData);
       
 #ifdef EXPORT_TS_DATA_AS_CSV
-      writeTimesteppingDataToCsv("output", tsData, nbSteps);
+      writeTimesteppingDataToCsv("output", tsData, nbSteps, m_buffer->size());
 #endif
-
-      std::cout << "Final result: ";
+      // Population (occupation expectation) for each qubit
+      std::vector<double> finalPopulations;
       for (int i = 0; i < resultSize; ++i)
       {
-         std::cout << results[i] << ", ";
+         finalPopulations.emplace_back(results[i]);
       }
-      std::cout << "\n";
+
+      m_buffer->addExtraInfo("<O>", finalPopulations);
 
       free(results);
    }

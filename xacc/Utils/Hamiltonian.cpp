@@ -15,7 +15,7 @@ namespace {
     std::string removeWhiteSpaces(const std::string& in_str)
     {
         auto result = in_str;
-        std::remove_if(result.begin(), result.end(), [](unsigned char c){ return std::isspace(c); });
+        result.erase(std::remove_if(result.begin(), result.end(), [](unsigned char c){ return std::isspace(c); }), result.end());
 
         return result;
     }
@@ -109,7 +109,7 @@ namespace {
             std::string expr2 = wrappedExpr.substr(pmPos + 1);
             // (1.0)* or (-1.0)*
             const std::string signExpr = "(" + std::string(1, wrappedExpr.at(pmPos)) + "1.0)*";
-            return { coeffExpr + expr1, coeffExpr + signExpr + expr2 };
+            return { coeffExpr + expr1, signExpr + coeffExpr  + expr2 };
         }
 
         return {};

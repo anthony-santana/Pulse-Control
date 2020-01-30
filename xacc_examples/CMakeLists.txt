@@ -16,3 +16,6 @@ include_directories(${XACC_INCLUDE_DIRS})
 
 add_executable(one_qubit one_qubit.cpp)
 target_link_libraries(one_qubit PRIVATE xacc_quac xacc::quantum_gate)
+
+add_executable(cross_resonant_interaction cross_resonant_interaction.cpp)
+target_link_libraries(cross_resonant_interaction PRIVATE xacc_quac xacc::quantum_gate)
