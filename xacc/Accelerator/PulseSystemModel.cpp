@@ -117,6 +117,16 @@ void PulseSystemModel::setChannelConfigs(const BackendChannelConfigs& in_config)
     m_channelConfigs = in_config;
 }
 
+double PulseSystemModel::getQubitT1(size_t in_qubitIdx) const
+{
+    const auto iter = m_qubitToT1.find(in_qubitIdx);
+    if (iter == m_qubitToT1.end())
+    {
+        return 0.0;
+    }
+
+    return iter->second;
+}
 
 bool PulseSystemModel::addCommandDef(const std::string& in_cmdDefName, const std::shared_ptr<xacc::CompositeInstruction>& in_pulseComposite)
 {

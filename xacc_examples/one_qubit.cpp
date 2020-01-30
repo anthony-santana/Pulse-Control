@@ -8,21 +8,25 @@ int main (int argc, char** argv) {
 	// Initialize the XACC Framework
 	xacc::Initialize(argc, argv);
     
-    auto systemModel = new QuaC::PulseSystemModel();
+    auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
 
     // An example one-qubit Hamiltonian
+    // H = epsilon / 2.0 * sigmaz() + delta / 2.0 * sigmax()
+    // Ref: https://nbviewer.jupyter.org/github/qutip/qutip-notebooks/blob/master/examples/qubit-dynamics.ipynb
+    // epsilon = cavity frequency = 0.0
+    // delta = atom frequency = 2*pi
     const std::string hamiltonianJson = R"(
         {
             "description": "One-qubit Hamiltonian.",
             "h_latex": "",
-            "h_str": ["-0.5*omega0*Z0", "0.5*omegaa*X0||D0"],
+            "h_str": ["0.5*epsilon*Z0", "0.5*delta*X0||D0"],
             "osc": {},
             "qub": {
                 "0": 2
             },
             "vars": {
-                "omega0": 6.2831853,
-                "omegaa": 0.031459
+                "epsilon": 0.0,
+                "delta": 6.2831853
             }
         }
     )";
@@ -33,13 +37,18 @@ int main (int argc, char** argv) {
     }
     
     BackendChannelConfigs channelConfigs;
-    channelConfigs.dt = 1.0;
-    channelConfigs.loFregs_dChannels.emplace_back(1.0);
-    
+    channelConfigs.dt = 0.05;
+    // LO freq = Cavity Freq = 0.0
+    channelConfigs.loFregs_dChannels.emplace_back(0.0);
+    // 100 samples * dt (0.05) = 5
     const size_t nbSamples = 100;
-    channelConfigs.addOrReplacePulse("square", QuaC::SquarePulse(nbSamples));
-    systemModel->setChannelConfigs(channelConfigs);
 
+    channelConfigs.addOrReplacePulse("square", QuaC::SquarePulse(nbSamples));
+    
+    systemModel->setChannelConfigs(channelConfigs);
+    // Qubit decay gamma
+    const double gamma = 0.15;
+    systemModel->setQubitT1(0, 1.0/gamma);
 
     auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel) });    
 

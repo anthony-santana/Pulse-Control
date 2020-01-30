@@ -422,7 +422,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianParsingUtil::tryParse(const std::str
         auto trySum = HamiltonianSumTerm::fromString(in_expr, in_vars);
         if (trySum)
         {
-            return std::unique_ptr<HamiltonianTerm>(trySum.release()); 
+            return std::move(trySum); 
         }
     }
     
@@ -431,7 +431,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianParsingUtil::tryParse(const std::str
     
         if (tryTimeDep)
         {
-            return std::unique_ptr<HamiltonianTerm>(tryTimeDep.release()); 
+            return std::move(tryTimeDep);
 
         }
     }
@@ -441,8 +441,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianParsingUtil::tryParse(const std::str
     
         if (tryTimeInd)
         {
-            return std::unique_ptr<HamiltonianTerm>(tryTimeInd.release()); 
-
+            return std::move(tryTimeInd);
         }
     }
     

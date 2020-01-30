@@ -208,9 +208,6 @@ namespace QuaC {
       m_pulseComposite = provider->createComposite("PulseComposite");
       m_systemModel = in_systemModel;
 
-      // TODO: we can convert the T1 data from backend data to this param
-      double kappa = 1e-64;
-      
       // Initialize the pulse constroller:
       // Create a pulse controller
       m_pulseChannelController = std::make_unique<PulseChannelController>(m_systemModel->getChannelConfigs());
@@ -229,9 +226,12 @@ namespace QuaC {
             term->apply(this);
          }
 
-         // TODO: try to track down why QuaC is throwing exceptions if there is no decay!!!
          for (int i = 0; i < buffer->size(); ++i)
          {
+            // TODO: try to track down why QuaC is throwing exceptions if there is no decay!!!
+            // For now, if none decay (T1) specified, just use a super small value.
+            const double DEFAULT_KAPPA = 1e-64;
+            const double kappa = m_systemModel->getQubitT1(i) == 0.0 ? DEFAULT_KAPPA : (1.0 / m_systemModel->getQubitT1(i));
             XACC_QuaC_AddQubitDecay(i, kappa);
          }
       }

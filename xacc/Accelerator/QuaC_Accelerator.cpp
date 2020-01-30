@@ -23,8 +23,9 @@ namespace QuaC {
         }
         else if (params.getPointerLike<PulseSystemModel>("system-model")) 
         {
-            auto systemModel = params.getPointerLike<PulseSystemModel>("system-model");
-            m_systemModel = std::shared_ptr<PulseSystemModel>(systemModel);
+            PulseSystemModel* systemModel = params.getPointerLike<PulseSystemModel>("system-model");
+            // we don't own this one, don't try to delete it.
+            m_systemModel = std::shared_ptr<PulseSystemModel>(systemModel , [](PulseSystemModel* ptr){});
         } 
         else
         {
