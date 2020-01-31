@@ -255,6 +255,9 @@ namespace QuaC {
             const double DEFAULT_KAPPA = 1e-64;
             const double kappa = m_systemModel->getQubitT1(i) == 0.0 ? DEFAULT_KAPPA : (1.0 / m_systemModel->getQubitT1(i));
             XACC_QuaC_AddQubitDecay(i, kappa);
+
+            const double initialPop = m_systemModel->getQubitInitialPopulation(i);
+            XACC_QuaC_SetInitialPopulation(i, initialPop);
          }
       }
 

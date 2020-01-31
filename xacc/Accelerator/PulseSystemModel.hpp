@@ -50,11 +50,15 @@ public:
     void setQubitT1(size_t in_qubitIdx, double in_qubitT1) { m_qubitToT1[in_qubitIdx] = in_qubitT1; }
     double getQubitT1(size_t in_qubitIdx) const;
 
+    void setQubitInitialPopulation(size_t in_qubitIdx, double in_initialPopulation) { m_qubitInitialPopulation[in_qubitIdx] = in_initialPopulation; }
+    double getQubitInitialPopulation(size_t in_qubitIdx) const;
+    
 private:
     std::string m_name;
     HamiltonianModel m_hamiltonian;
     BackendChannelConfigs m_channelConfigs;
     std::unordered_map<std::string, std::shared_ptr<xacc::CompositeInstruction>> m_pulseCmdDefs;
     std::unordered_map<size_t, double> m_qubitToT1;
+    std::unordered_map<size_t, double> m_qubitInitialPopulation;
 };
 }

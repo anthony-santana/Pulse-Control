@@ -146,6 +146,17 @@ double PulseSystemModel::getQubitT1(size_t in_qubitIdx) const
     return iter->second;
 }
 
+double PulseSystemModel::getQubitInitialPopulation(size_t in_qubitIdx) const
+{
+    const auto iter = m_qubitInitialPopulation.find(in_qubitIdx);
+    if (iter == m_qubitToT1.end() || iter->second < 0.0 || iter->second > 1.0)
+    {
+        return 0.0;
+    }
+
+    return iter->second;
+}
+
 bool PulseSystemModel::addCommandDef(const std::string& in_cmdDefName, const std::shared_ptr<xacc::CompositeInstruction>& in_pulseComposite)
 {
     // Check that this composite contains only Pulse instructions

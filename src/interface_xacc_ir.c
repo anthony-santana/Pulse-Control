@@ -380,3 +380,9 @@ PetscErrorCode g_tsDefaultMonitorFunc(TS ts, PetscInt step, PetscReal time, Vec 
     g_nbStepCount++;
     PetscFunctionReturn(0);
 }
+
+void XACC_QuaC_SetInitialPopulation(int in_qubitIdx, double in_initialPopulation)
+{
+    ASSERT_QUBIT_INDEX(in_qubitIdx);
+    set_initial_pop(qubits[in_qubitIdx], in_initialPopulation);
+}

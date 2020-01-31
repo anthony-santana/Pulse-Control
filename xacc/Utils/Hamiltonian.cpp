@@ -7,6 +7,8 @@
 #include <cassert>
 #include "xacc.hpp"
 #include "json.hpp"
+#include <regex>
+
 extern "C" {
 #include "interface_xacc_ir.h"
 }
@@ -301,19 +303,67 @@ std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::fromString(const std::strin
     const int startLoopVal = std::stoi(startValStr);
     const int endLoopVal = std::stoi(endValStr);
 
-    const auto resolveLoopTemplate = [](const std::string& in_string, const std::string& in_template, int in_val) -> std::string {
-	    std::string result = in_string;
+    const auto resolveLoopTemplate = [&varFmt](const std::string& in_string, const std::string& in_loopVarName, int in_val) -> std::string {
+	    static const std::regex loopValRegex("(\\{.*?\\})");
+        std::string result = in_string;
+        std::smatch base_match;
+        
+        const bool matchResult = std::regex_search(result, base_match, loopValRegex);
+        std::unordered_map<std::string, int> loopVarExprs;
+        auto searchStart(result.cbegin());
+        while(std::regex_search(searchStart, result.cend(), base_match, loopValRegex)) 
+        {
+            for (size_t i = 0; i < base_match.size(); ++i) 
+            {
+                loopVarExprs.emplace(base_match[i], 0);
+            }
+            searchStart = base_match.suffix().first;
+        }
+        
+        // Just one variable: the loop var
+        QuaC::VarsMap loopVarMap;
+        loopVarMap.emplace(in_loopVarName, in_val);
+        
+        for (auto& kv : loopVarExprs)
+        {
+            // Fast path: if it is simply {i}, the assign the value directly, no need to evaluate
+            auto loopVarExpr = kv.first;
+            if (loopVarExpr == varFmt)
+            {
+                kv.second = in_val;
+            }
+            else
+            {
+                // Something more complex: like {i+1}
+                // Remove the curly brackets
+                loopVarExpr.erase(0, 1);
+                loopVarExpr.pop_back();
+                double evalResult = -1;
+                if (TryEvaluateExpression(loopVarExpr, loopVarMap, evalResult))
+                {
+                    kv.second = (int)evalResult; 
+                }
+            }
+        }
+
         // Get the first occurrence
-	    size_t pos = in_string.find(in_template);
-        const std::string replaceStr = std::to_string(in_val);
-	    // Repeat till end is reached
-	    while(pos != std::string::npos)
-	    {
-		    // Replace this occurrence 
-		    result.replace(pos, in_template.size(), replaceStr);
-		    // Get the next occurrence from the current position
-		    pos = result.find(in_template, pos + replaceStr.size());
-	    }
+        const auto replaceTemplateWithValue = [&](const std::string& in_template, int in_value) {
+            size_t pos = result.find(in_template);
+            const std::string replaceStr = std::to_string(in_value);
+            // Repeat till end is reached
+            while(pos != std::string::npos)
+            {
+                // Replace this occurrence 
+                result.replace(pos, in_template.size(), replaceStr);
+                // Get the next occurrence from the current position
+                pos = result.find(in_template, pos + replaceStr.size());
+            }
+        };
+	    
+        for (auto& kv : loopVarExprs)
+        {
+            replaceTemplateWithValue(kv.first, kv.second);
+        }
 
         return result;
     };
@@ -324,7 +374,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::fromString(const std::strin
         return nullptr;
     }
 
-    const auto resolvedExpression = resolveLoopTemplate(loopExpression, varFmt, startLoopVal);
+    const auto resolvedExpression = resolveLoopTemplate(loopExpression, loopVarName, startLoopVal);
     const auto tryTimeIndependent = HamiltonianTimeIndependentTerm::fromString(resolvedExpression, in_vars);
     const auto tryTimeDependent = HamiltonianTimeDependentTerm::fromString(resolvedExpression, in_vars);
 
@@ -337,12 +387,12 @@ std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::fromString(const std::strin
     const auto parseLoopExpression = [&](const std::string& in_exprStr) ->  std::unique_ptr<HamiltonianTerm> {
         if (isTimeDependent)
         {
-            auto result = HamiltonianTimeDependentTerm::fromString(resolvedExpression, in_vars);
+            auto result = HamiltonianTimeDependentTerm::fromString(in_exprStr, in_vars);
             return std::unique_ptr<HamiltonianTerm>(result.release()); 
         }
         else
         {
-            auto result = HamiltonianTimeIndependentTerm::fromString(resolvedExpression, in_vars);
+            auto result = HamiltonianTimeIndependentTerm::fromString(in_exprStr, in_vars);
             return std::unique_ptr<HamiltonianTerm>(result.release()); 
         }        
     };
@@ -352,7 +402,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::fromString(const std::strin
 
     for (int i = startLoopVal; i <= endLoopVal; ++i)
     {
-        const auto resolvedExpression = resolveLoopTemplate(loopExpression, varFmt, i);
+        const auto resolvedExpression = resolveLoopTemplate(loopExpression, loopVarName, i);
         std::unique_ptr<HamiltonianTerm> result = parseLoopExpression(resolvedExpression);
         assert(result != nullptr);
         loopOps.emplace_back(std::move(result));
