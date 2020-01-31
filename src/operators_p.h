@@ -30,4 +30,5 @@ extern int  num_subsystems;
 extern int  op_initialized;
 extern PetscScalar **_hamiltonian;
 extern int _print_dense_ham;
+extern int _disable_adaptive_ts;
 #endif

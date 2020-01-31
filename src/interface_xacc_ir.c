@@ -386,3 +386,8 @@ void XACC_QuaC_SetInitialPopulation(int in_qubitIdx, double in_initialPopulation
     ASSERT_QUBIT_INDEX(in_qubitIdx);
     set_initial_pop(qubits[in_qubitIdx], in_initialPopulation);
 }
+
+void XACC_QuaC_DisableAdaptiveTimestepping()
+{
+    _disable_adaptive_ts = 1;
+}

@@ -64,6 +64,7 @@ void QuaC_clear(){
   _print_dense_ham = 0;
   _num_time_dep = 0;
   op_initialized = 0;
+  _disable_adaptive_ts = 0;
 }
 
 

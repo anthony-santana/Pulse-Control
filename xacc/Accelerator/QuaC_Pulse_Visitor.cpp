@@ -403,6 +403,30 @@ namespace QuaC {
       TSData* tsData;  
       int nbSteps;
       
+      // Check if there is a non-zero LO freq defined, then we need to disable adaptive time-stepping.
+      // Adaptive time-stepping doesn't handle modulated pulse signals well, hence can cause significant errors.
+      // Hence, if we see that there are non-zero LO freqs, we must disable adaptive time-stepping.
+      // Note: we can move to the rotating frame to eliminate the LO freq, i.e. set it to zero
+      // (the Hamiltonian model will need to be updated accordingly, e.g. remove static rotating terms)
+      // In that case, adaptive will be enabled automatically.
+      // For pulse simulation, in general, we want to explicitly model the modulated pulses. 
+      bool hasLOfreqs = false;
+      for (const auto& freq : m_pulseChannelController->GetBackendConfigs().loFregs_dChannels)
+      {
+         if (freq > 0.0)
+         {
+            hasLOfreqs = true;
+            break;
+         }
+      }
+
+      if (hasLOfreqs)
+      {
+         // Disable adaptive time-stepping
+         XACC_QuaC_DisableAdaptiveTimestepping();
+      }
+
+
       // Step 3: Run the simulation
       const auto resultSize = XACC_QuaC_RunPulseSim(dt, simStopTime, stepMax, &results, &nbSteps, &tsData);
       

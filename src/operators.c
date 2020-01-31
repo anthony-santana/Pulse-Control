@@ -32,6 +32,7 @@ int _num_time_dep_lin = 0;
 time_dep_struct _time_dep_list[MAX_SUB];
 time_dep_struct _time_dep_list_lin[MAX_SUB];
 PetscScalar **_hamiltonian;
+int _disable_adaptive_ts = 0;
 
 /*
  * print_dense_ham tells the program to print the dense hamiltonian when it is constructed.

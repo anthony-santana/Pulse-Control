@@ -430,7 +430,17 @@ void time_step(Vec x, PetscReal init_time, PetscReal time_max,PetscReal dt,Petsc
   PetscViewerDestroy(&mat_view);
 
   TSSetTimeStep(ts,dt);
-
+  
+  // Disable adaptive time-stepping if requested
+  // (enable by default)
+  if (_disable_adaptive_ts) {
+    TSAdapt adapt;
+    TSGetAdapt(ts, &adapt);
+    TSAdaptSetType(adapt, TSADAPTNONE);
+    _disable_adaptive_ts = 0;
+  }
+  
+  
   /*
    * Set default options, can be changed at runtime
    */
