@@ -4,6 +4,8 @@
 #include <chrono>
 #include <iomanip>
 #include <cassert>
+#include <random>
+#include <chrono> 
 #include "Scheduler.hpp"
 #include "PulseSystemModel.hpp"
 
@@ -252,7 +254,7 @@ namespace QuaC {
          {
             // TODO: try to track down why QuaC is throwing exceptions if there is no decay!!!
             // For now, if none decay (T1) specified, just use a super small value.
-            const double DEFAULT_KAPPA = 1e-64;
+            const double DEFAULT_KAPPA = 1e-128;
             const double kappa = m_systemModel->getQubitT1(i) == 0.0 ? DEFAULT_KAPPA : (1.0 / m_systemModel->getQubitT1(i));
             XACC_QuaC_AddQubitDecay(i, kappa);
 
@@ -262,6 +264,15 @@ namespace QuaC {
       }
 
       m_buffer = buffer;
+
+      if (in_params.keyExists<int>("shots")) 
+      {
+         m_shotCount = in_params.get<int>("shots");
+         if (m_shotCount < 1) 
+         {
+            xacc::error("Invalid 'shots' parameter.");
+         }
+      }    
    }
 
    int PulseVisitor::GetChannelId(const std::string& in_channelName) 
@@ -323,6 +334,7 @@ namespace QuaC {
    {
       // Step 1: schedule the pulse program
       schedulePulses(m_pulseComposite);      
+      m_measureQubits.clear();
       
       // Step 2: initialize the pulse channel controller with the scheduled pulses
       PulseScheduleRegistry allPulseSchedules;
@@ -351,16 +363,25 @@ namespace QuaC {
                {
                   simStopTime = endTime;
                }
+               if (!m_measureQubits.empty())
+               {
+                  xacc::error("Gate operations are not allowed after measurements!\n");
+               }
             }
             else if (pulseName == "acquire")
             {
-               // TODO: we don't support acquire yet
-               xacc::warning("Acquire is not supported. Skipped!!!!");
+               m_measureQubits.emplace(pulse->bits()[0]);
             }
             else
             {
                // This is a pulse instruction (pulse name + sample)
-               
+               // Note: we are solving the system dynamics via the Master Equation (via a solver not Monte Carlo),
+               // hence, currently, we can only support measurements at the end of the circuit.
+               if (!m_measureQubits.empty())
+               {
+                  xacc::error("Gate operations are not allowed after measurements!\n");
+               }
+
                // Check in case this is a new pulse that may be constructed on-the-fly
                // e.g. we can, at IR-level, create a new pulse (arbitrary name and supply the samples),
                // then add to the composite. We will gracefully handle that by adding that user-defined pulse to the library. 
@@ -429,7 +450,9 @@ namespace QuaC {
 
       // Step 3: Run the simulation
       const auto resultSize = XACC_QuaC_RunPulseSim(dt, simStopTime, stepMax, &results, &nbSteps, &tsData);
-      
+      // We are returning the populations for all qubits
+      assert(resultSize == m_buffer->size());
+
 #ifdef EXPORT_TS_DATA_AS_CSV
       writeTimesteppingDataToCsv("output", tsData, nbSteps, m_buffer->size());
 #endif
@@ -441,8 +464,32 @@ namespace QuaC {
       }
 
       m_buffer->addExtraInfo("<O>", finalPopulations);
-
+      
+      if (!m_measureQubits.empty())
+      {
+         for(int i = 0; i < m_shotCount; ++i)
+         {
+            m_buffer->appendMeasurement(generateResultBitString(finalPopulations));
+         }
+      }
+      
       free(results);
+   }
+
+
+   std::string PulseVisitor::generateResultBitString(const std::vector<double>& in_occupationProbs) const
+   {
+      static auto randomProbFunc = std::bind(std::uniform_real_distribution<double>(0, 1), std::mt19937(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+      std::string result;
+      for (const auto& qubit : m_measureQubits)
+      {
+         const auto probPick = randomProbFunc();
+         const auto qubitOcc = in_occupationProbs[qubit];
+         // Occupation value is the '1' probability
+         result.push_back(qubitOcc > probPick ? '1' : '0');
+      }
+
+      return result;
    }
 
    void PulseVisitor::visit(Hadamard& h)  
@@ -776,7 +823,10 @@ namespace QuaC {
 
    void PulseVisitor::visit(Measure& measure)  
    {
-      xacc::error("Measure is not supported atm!");
+      // Convert Measure to an 'acquire' pulse
+      auto acquireInst = std::make_shared<xacc::quantum::Pulse>("acquire");
+      acquireInst->setBits(measure.bits());
+      m_pulseComposite->addInstruction(acquireInst);
    }
 
    void PulseVisitor::visit(Pulse& p)  

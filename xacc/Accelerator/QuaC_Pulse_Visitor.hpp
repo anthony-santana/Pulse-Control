@@ -48,10 +48,14 @@ namespace QuaC {
 
     private:
         void schedulePulses(const std::shared_ptr<CompositeInstruction>& in_pulseInstruction);
+        std::string generateResultBitString(const std::vector<double>& in_occupationProbs) const;
     private:
         std::unique_ptr<PulseChannelController> m_pulseChannelController;
         std::shared_ptr<CompositeInstruction> m_pulseComposite;
         PulseSystemModel* m_systemModel; 
         std::shared_ptr<AcceleratorBuffer> m_buffer;
+        // Qubits that are measured.
+        std::set<size_t> m_measureQubits;
+        int m_shotCount;
     };    
 }

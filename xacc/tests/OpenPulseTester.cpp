@@ -3,9 +3,12 @@
 #include "Pulse.hpp"
 #include "PulseSystemModel.hpp"
 #include "PulseGen.hpp"
+#include "CommonGates.hpp"
 
 namespace
 {
+    const int NB_SHOTS = 256;
+
     const std::string singleQubitHamiltonianJsonTemplate = R"(
         {
             "description": "One-qubit Hamiltonian.",
@@ -65,7 +68,7 @@ TEST(SimpleTester, testXGate)
     channelConfigs.addOrReplacePulse("square", QuaC::SquarePulse(total_samples));    
     systemModel->setChannelConfigs(channelConfigs);
     
-    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel) });    
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel), std::make_pair("shots", NB_SHOTS) });    
 
     auto qubitReg = xacc::qalloc(1);    
 
@@ -73,12 +76,22 @@ TEST(SimpleTester, testXGate)
     auto compositeInst = provider->createComposite("test_pulse");
     auto pulseInst = std::make_shared<xacc::quantum::Pulse>("square", "d0");
     compositeInst->addInstruction(pulseInst);
+    
+    // Add a measure to get bitstrings
+  	auto meas = std::make_shared<xacc::quantum::Measure>(0);
+    compositeInst->addInstruction(meas);
 
     // Run the Pulse simulation with the Hamiltonian provided
     quaC->execute(qubitReg, compositeInst);
     const auto finalPopulations = qubitReg->getInformation("<O>").as<std::vector<double>>();
     EXPECT_EQ(finalPopulations.size(), 1);
     EXPECT_NEAR(finalPopulations[0], 1.0, 0.01);
+
+    // Check via bitstrings
+    const double prob0 = qubitReg->computeMeasurementProbability("0");
+    const double prob1 = qubitReg->computeMeasurementProbability("1");
+    EXPECT_NEAR(prob0, 0.0, 0.1);
+    EXPECT_NEAR(prob1, 1.0, 0.1);
 }
 
 TEST(SimpleTester, testHadamardGate) 
@@ -107,7 +120,7 @@ TEST(SimpleTester, testHadamardGate)
     channelConfigs.addOrReplacePulse("square", QuaC::SquarePulse(total_samples));    
     systemModel->setChannelConfigs(channelConfigs);
     
-    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel) });    
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel), std::make_pair("shots", NB_SHOTS) });    
 
     auto qubitReg = xacc::qalloc(1);    
 
@@ -123,13 +136,26 @@ TEST(SimpleTester, testHadamardGate)
     
     compositeInst->addInstruction(fcInst);
     compositeInst->addInstruction(pulseInst);
-
+    
+    // Request a measurement via 'acquire' pulse instructions 
+    auto aqInst = std::make_shared<xacc::quantum::Pulse>("acquire");
+    aqInst->setBits({0});
+    compositeInst->addInstruction(aqInst);
+    
     // Run the Pulse simulation with the Hamiltonian provided
     quaC->execute(qubitReg, compositeInst);
     const auto finalPopulations = qubitReg->getInformation("<O>").as<std::vector<double>>();
     EXPECT_EQ(finalPopulations.size(), 1);
     // Population ~ 0.5 (i.e. if doing shots, we get half/half probability)
     EXPECT_NEAR(finalPopulations[0], 0.5, 0.01);
+
+    // Check via bitstrings
+    qubitReg->print();
+    const double prob0 = qubitReg->computeMeasurementProbability("0");
+    const double prob1 = qubitReg->computeMeasurementProbability("1");
+    // Use a relaxed limit due to limited shot count
+    EXPECT_NEAR(prob0, 0.5, 0.1);
+    EXPECT_NEAR(prob1, 0.5, 0.1);
 }
 
 // Test Gaussian drive
