@@ -279,14 +279,16 @@ void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, co
     add_to_ham_mult2(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
 }
 
-void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, int in_channelId)
+void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, int in_channelId, double in_coefficient)
 {
     ASSERT_PULSE_MODE;
     ASSERT_QUBIT_INDEX(in_qubitIdx1);
     ASSERT_QUBIT_INDEX(in_qubitIdx2);
-    TODO(Implement time-dependent product terms in QuaC)
     // Number of channels is the max of index + 1
     g_nbTimeDepChannels = (in_channelId + 1 > g_nbTimeDepChannels) ? in_channelId + 1 : g_nbTimeDepChannels;
+    
+    LOG_INFO("H += %lf * %s%d * %s%d * Channel_%d (t)\n", in_coefficient, in_op1, in_qubitIdx1, in_op2, in_qubitIdx2, in_channelId);
+    add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 2, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
 }
 
 int XACC_QuaC_RunPulseSim(double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData)
@@ -353,16 +355,25 @@ PetscErrorCode g_tsDefaultMonitorFunc(TS ts, PetscInt step, PetscReal time, Vec 
 
     for (int i = 0; i < nbQubits; ++i)
     {
-        // Pauli-X
-        get_expectation_value(dm, &expectX, 1, qubits[i]->sig_x);
-        // Pauli-Y
-        get_expectation_value(dm, &expectY, 1, qubits[i]->sig_y);
-        // Pauli-Z
-        get_expectation_value(dm, &expectZ, 1, qubits[i]->sig_z);
+        if (qubits[i]->my_levels == 2)
+        {
+            // Pauli-X
+            get_expectation_value(dm, &expectX, 1, qubits[i]->sig_x);
+            // Pauli-Y
+            get_expectation_value(dm, &expectY, 1, qubits[i]->sig_y);
+            // Pauli-Z
+            get_expectation_value(dm, &expectZ, 1, qubits[i]->sig_z);
 
-        g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3] = PetscRealPart(expectX);
-        g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 1] = PetscRealPart(expectY);
-        g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 2] = PetscRealPart(expectZ); 
+            g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3] = PetscRealPart(expectX);
+            g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 1] = PetscRealPart(expectY);
+            g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 2] = PetscRealPart(expectZ);
+        }
+        else
+        {
+            g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3] = 0.0;
+            g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 1] = 0.0;
+            g_timeSteppingData[g_nbStepCount].pauliExpectations[i*3 + 2] = 0.0;
+        }     
     }
 
     if (nid==0)

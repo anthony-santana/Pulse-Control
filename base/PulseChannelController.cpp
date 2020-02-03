@@ -142,6 +142,12 @@ void PulseChannelController::Tick(double in_time)
                 // The pulse is still active, no need to check for new schedules
                 break;
             }
+            else
+            {
+                // The current pulse is inactive now, perhaps the current time exceeds stop time
+                // Reset active pulse, will be reassign later if there is a next pulse scheduled.
+                m_activePulse[i] = nullptr;
+            }
         }
         
         // retrieve all pulse schedules of that channel from the configs

@@ -4,7 +4,6 @@ CFLAGS = -Wuninitialized -g -fPIC
 ODIR=obj
 SRCDIR=src
 BASEDIR=base
-BASE_LIB_LINK=/home/cades/dev/QuaC/build/base/libbase.a 
 EXAMPLESDIR=examples
 EXAMPLES=$(basename $(notdir $(wildcard $(EXAMPLESDIR)/*.c)))
 TESTDIR=tests
@@ -31,7 +30,7 @@ TEST_DEPS  = $(patsubst %,$(TESTDIR)/%,$(_TEST_DEPS))
 
 $(ODIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	@mkdir -p $(@D)
-	${PETSC_COMPILE} -c -o $@ $< $(CFLAGS) ${PETSC_KSP_LIB} ${PETSC_CC_INCLUDES} ${BASE_LIB_LINK}
+	${PETSC_COMPILE} -c -o $@ $< $(CFLAGS) ${PETSC_KSP_LIB} ${PETSC_CC_INCLUDES}
 
 $(ODIR)/%.o: $(EXAMPLESDIR)/%.c $(DEPS)
 	@mkdir -p $(@D)
@@ -83,7 +82,7 @@ $(EXAMPLES) : % : $(ODIR)/%.o $(OBJ)
 
 ${LIBQUAC} : $(OBJ)
 	@echo "Linking shared library: "
-	${CLINKER} -shared -o ${LIBQUAC} $^ $(CFLAGS) ${PETSC_KSP_LIB} ${BASE_LIB_LINK}
+	${CLINKER} -shared -o ${LIBQUAC} $^ $(CFLAGS) ${PETSC_KSP_LIB}
 
 .PHONY: clean
 

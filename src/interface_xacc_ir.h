@@ -89,7 +89,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentH
 // (1) Time-independent term: 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, ComplexCoefficient in_coeff);
 // (2) Time-dependent term:
-__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, int in_channelId);
+__attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, int in_channelId, double in_coefficient);
 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_SetInitialPopulation(int in_qubitIdx, double in_initialPopulation);
 

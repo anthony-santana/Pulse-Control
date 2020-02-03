@@ -115,7 +115,13 @@ public:
     HamiltonianTimeDependentTerm(const std::string& in_channelName, double in_coeff, const QubitOp& in_op):
         m_channelName(in_channelName),
         m_coefficient(in_coeff),
-        m_operator(in_op)
+        m_operators({ in_op })
+    {}
+
+    HamiltonianTimeDependentTerm(const std::string& in_channelName, double in_coeff, const std::vector<QubitOp>& in_ops):
+        m_channelName(in_channelName),
+        m_coefficient(in_coeff),
+        m_operators(in_ops)
     {}
 
     virtual void apply(IChannelNameResolver* in_channelResolver) override;
@@ -125,8 +131,7 @@ public:
 private:
     std::string m_channelName;
     double m_coefficient;
-    // Note: currently, we only support single operator in time-dependent terms
-    QubitOp m_operator;
+    std::vector<QubitOp> m_operators;
 };
 
 // Hamiltonian Parsing utility for IBM Open Pulse format

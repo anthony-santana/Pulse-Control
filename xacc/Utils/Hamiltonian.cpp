@@ -188,20 +188,27 @@ std::unique_ptr<HamiltonianTerm> HamiltonianTimeDependentTerm::fromString(const 
         return std::unique_ptr<HamiltonianTerm>(new HamiltonianSumTerm(std::move(terms)));
     }
 
-    std::string opConstExpr;
-    QubitOp resultOp;
-    if (!GetLastOperator(operatorExpression, resultOp, opConstExpr))
+    std::vector<QubitOp> operators;
+    QubitOp tempOp;
+    std::string remainderStr;
+    std::string tempStr = operatorExpression;
+    while (GetLastOperator(tempStr, tempOp, remainderStr))
     {
-       return nullptr;
+        operators.emplace_back(tempOp);
+        tempStr = remainderStr;
     }
-   
+
+
     double evaled = 0.0;
-    if (!TryEvaluateExpression(opConstExpr, in_vars, evaled))
+    if (!TryEvaluateExpression(remainderStr, in_vars, evaled))
     {
         return nullptr;
     }
-  
-    return std::make_unique<HamiltonianTimeDependentTerm>(channelName, evaled, resultOp);
+
+    // Reverse the vector list since we were parsing operators from the back.
+    std::reverse(operators.begin(), operators.end());
+    
+    return std::make_unique<HamiltonianTimeDependentTerm>(channelName, evaled, operators);
 }
 
 std::unique_ptr<HamiltonianTerm> HamiltonianTimeIndependentTerm::fromString(const std::string& in_string, const VarsMap& in_vars)
@@ -434,7 +441,18 @@ void HamiltonianTimeIndependentTerm::apply(IChannelNameResolver* in_channelResol
 
 void HamiltonianTimeDependentTerm::apply(IChannelNameResolver* in_channelResolver)
 {
-    XACC_QuaC_AddTimeDependentHamiltonianTerm1(OperatorToString(m_operator.first).c_str(), m_operator.second, in_channelResolver->GetChannelId(m_channelName), m_coefficient);
+    // We only support multiplication of up to two operators
+    assert(m_operators.size() == 1 || m_operators.size() == 2);
+    if (m_operators.size() == 1)
+    {
+        XACC_QuaC_AddTimeDependentHamiltonianTerm1(OperatorToString(m_operators[0].first).c_str(), m_operators[0].second, in_channelResolver->GetChannelId(m_channelName), m_coefficient);
+    }
+    else if (m_operators.size() == 2)
+    {
+        XACC_QuaC_AddTimeDependentHamiltonianTerm2(OperatorToString(m_operators[0].first).c_str(), m_operators[0].second, 
+                                                    OperatorToString(m_operators[1].first).c_str(), m_operators[1].second, 
+                                                    in_channelResolver->GetChannelId(m_channelName), m_coefficient);
+    }    
 }
 
 void HamiltonianSumTerm::apply(IChannelNameResolver* in_channelResolver)
@@ -452,7 +470,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianTimeIndependentTerm::clone()
 
 std::unique_ptr<HamiltonianTerm> HamiltonianTimeDependentTerm::clone()
 {
-    return std::unique_ptr<HamiltonianTerm>(new HamiltonianTimeDependentTerm(m_channelName, m_coefficient, m_operator)); 
+    return std::unique_ptr<HamiltonianTerm>(new HamiltonianTimeDependentTerm(m_channelName, m_coefficient, m_operators)); 
 }
 
 std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::clone()
