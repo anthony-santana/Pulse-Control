@@ -8,6 +8,20 @@
 namespace
 {
     const int NB_SHOTS = 256;
+    
+    // Expected state vector (2 complex numbers) when driving a single qubit with
+    // a Gaussian pulse. 
+    // Used for test validation.
+    std::vector<std::complex<double>> expectedStateVectorGaussianDrive(double in_time, double in_sigma, double in_driveStrength)
+    {
+        // Analytical result:
+        // [cos(x), -isin(x)] with
+        // x = 0.5* sqrt(pi/2) * sigma * drive_strength * ERF(t / (sqrt(2) * sigma))
+        const double x =  0.5 * sqrt(M_PI/2) * in_sigma * in_driveStrength * erf(in_time/ (sqrt(2) * in_sigma));
+        const std::complex<double> state0 { cos(x), 0.0};
+        const std::complex<double> state1 { 0.0, -sin(x)};
+        return { state0, state1 };
+    }
 
     const std::string singleQubitHamiltonianJsonTemplate = R"(
         {
@@ -161,42 +175,57 @@ TEST(SimpleTester, testHadamardGate)
 // Test Gaussian drive
 TEST(SimpleTester, testGaussianDrive) 
 {
-    auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
     // Params:
     const int total_samples = 100;
     const double omega_0 = 2 * M_PI;
     const double omega_d0 = omega_0;
-    const double omega_a = M_PI / total_samples;
-
-    const std::string hamiltonianJson = createHamiltonianJson1Q(omega_0, omega_a);
-
-    const bool loadOK = systemModel->loadHamiltonianJson(hamiltonianJson);
-    EXPECT_TRUE(loadOK);
+    const double omega_a = M_PI / total_samples;  
+    // Test cases: different pulse width (Gaussian sigma param)
+    const std::vector<int> gaussSigmaSampleCounts { total_samples / 6, total_samples / 3, total_samples };
     
-    BackendChannelConfigs channelConfigs;
+    for (const auto& gaussSigmaSampleCount : gaussSigmaSampleCounts)
+    {
+        auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
+        const std::string hamiltonianJson = createHamiltonianJson1Q(omega_0, omega_a);
+
+        const bool loadOK = systemModel->loadHamiltonianJson(hamiltonianJson);
+        EXPECT_TRUE(loadOK);    
+        BackendChannelConfigs channelConfigs;
     
-    channelConfigs.dt = 1.0;
-    // LO freq: this is non-zero, hence the drive signal will be modulated. 
-    channelConfigs.loFregs_dChannels.emplace_back(omega_d0/(2*M_PI));
-    double  gaussSigma = total_samples;
-    // Add the Gaussian pulse
-    channelConfigs.addOrReplacePulse("gaussian", QuaC::GaussianPulse(total_samples, gaussSigma));    
-    systemModel->setChannelConfigs(channelConfigs);
-    
-    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel) });    
+        channelConfigs.dt = 1.0;
+        // LO freq: this is non-zero, hence the drive signal will be modulated. 
+        channelConfigs.loFregs_dChannels.emplace_back(omega_d0/(2*M_PI));        
+        
+        const double  gaussSigma = gaussSigmaSampleCount * channelConfigs.dt;
 
-    auto qubitReg = xacc::qalloc(1);    
+        // Add the Gaussian pulse
+        channelConfigs.addOrReplacePulse("gaussian", QuaC::GaussianPulse(total_samples, gaussSigma));    
+        systemModel->setChannelConfigs(channelConfigs);
+        
+        auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel) });    
 
-    auto provider = xacc::getIRProvider("quantum");
-    auto compositeInst = provider->createComposite("test_gaussian_pulse");
-    auto pulseInst = std::make_shared<xacc::quantum::Pulse>("gaussian", "d0");
-    compositeInst->addInstruction(pulseInst);
+        auto qubitReg = xacc::qalloc(1);    
 
-    // Run the Pulse simulation with the Hamiltonian provided
-    quaC->execute(qubitReg, compositeInst);
-    const auto finalPopulations = qubitReg->getInformation("<O>").as<std::vector<double>>();
-    EXPECT_EQ(finalPopulations.size(), 1);
-    // TODO: derive the test condition here
+        auto provider = xacc::getIRProvider("quantum");
+        auto compositeInst = provider->createComposite("test_gaussian_pulse");
+        auto pulseInst = std::make_shared<xacc::quantum::Pulse>("gaussian", "d0");
+        compositeInst->addInstruction(pulseInst);
+
+
+        const auto expectedStateVector = expectedStateVectorGaussianDrive(total_samples*channelConfigs.dt, gaussSigma, omega_a);
+        const auto expectedProb0 = std::pow(std::abs(expectedStateVector[0]), 2.0);
+        const auto expectedProb1 = std::pow(std::abs(expectedStateVector[1]), 2.0);
+        // Check our analytical results as well
+        EXPECT_NEAR(expectedProb0 + expectedProb1, 1.0, 1e-9);
+
+        // Run the Pulse simulation with the Hamiltonian provided
+        quaC->execute(qubitReg, compositeInst);
+        const auto finalPopulations = qubitReg->getInformation("<O>").as<std::vector<double>>();
+        EXPECT_EQ(finalPopulations.size(), 1);
+        
+        // The simulation result is within 10% error bar (compared to analytical)
+        EXPECT_NEAR(finalPopulations[0], expectedProb1, 0.1*expectedProb1);
+    }
 }
 
 // Do a frame change by PI, confirm that the gate is reverse.
