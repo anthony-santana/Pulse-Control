@@ -402,3 +402,21 @@ void XACC_QuaC_DisableAdaptiveTimestepping()
 {
     _disable_adaptive_ts = 1;
 }
+
+double XACC_QuaC_CalcConcurrence(int in_qubitIdx1, int in_qubitIdx2)
+{
+    ASSERT_QUBIT_INDEX(in_qubitIdx1);
+    ASSERT_QUBIT_INDEX(in_qubitIdx2);
+    // Partial trace: only keep the 2 requested qubits
+    Vec tmpPsi;
+    create_dm(&tmpPsi, 4);
+    partial_trace_keep(psi, tmpPsi, 2, qubits[in_qubitIdx1], qubits[in_qubitIdx2]);
+    
+    // Calculate the bipartite concurrence
+    double concurrenceResult = 0.0;
+    get_bipartite_concurrence(tmpPsi, &concurrenceResult);
+
+    destroy_dm(tmpPsi);
+
+    return concurrenceResult;
+}

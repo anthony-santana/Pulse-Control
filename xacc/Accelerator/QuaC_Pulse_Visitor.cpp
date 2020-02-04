@@ -465,6 +465,41 @@ namespace QuaC {
 
       m_buffer->addExtraInfo("<O>", finalPopulations);
       
+      // If the buffer has the "Concurrence" info key, fill in that field
+      if (m_buffer->hasExtraInfoKey("Concurrence"))
+      {
+         std::map<std::string, double> requestedConcurrenceCalc = (*m_buffer)["Concurrence"].as<std::map<std::string, double>>();
+
+         for (auto& kv: requestedConcurrenceCalc)
+         {
+            const std::string bitsStr = kv.first;
+            const auto separatorPos = bitsStr.find("_");
+            if (separatorPos == std::string::npos)
+            {
+               break;
+            }
+            
+            try 
+            {
+               const int qIdx1 = std::stoi(bitsStr.substr(0, separatorPos));
+               const int qIdx2 = std::stoi(bitsStr.substr(separatorPos + 1));
+               // Validate the input
+               if (qIdx1 != qIdx2 && qIdx1 < m_buffer->size() && qIdx2 < m_buffer->size())
+               {
+                  // Set the result
+                  kv.second = XACC_QuaC_CalcConcurrence(qIdx1, qIdx2);
+               }
+            }
+            catch (...)
+            {
+               // Ignore, bogus characters (cannot convert to integer)
+            }
+         }
+         
+         // Override the extra info with the data
+         m_buffer->addExtraInfo("Concurrence", requestedConcurrenceCalc);
+      }
+      
       if (!m_measureQubits.empty())
       {
          for(int i = 0; i < m_shotCount; ++i)

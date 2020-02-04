@@ -95,4 +95,9 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_SetInitialPopulat
 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_DisableAdaptiveTimestepping();
 
+
+// Some methods to compute useful properties from the density matrix, e.g. to append as extra info to the XACC accelerator buffer
+// Calculate the concurrence between 2 qubits
+__attribute__ ((visibility ("default"))) extern double XACC_QuaC_CalcConcurrence(int in_qubitIdx1, int in_qubitIdx2);
+
 // ======================================================================
