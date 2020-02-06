@@ -6,7 +6,7 @@
 // to query the channel signal data from a centralized controller.
 #define REGISTER_DRIVE_CHANNEL(pulseChannelProvider, channelId) \
     double _DriveChannel##channelId(double time) {\
-        const int m_channelId = channelId;\  
+        const int m_channelId = channelId;\
         return GetPulseValue(pulseChannelProvider, m_channelId, time);\
     }
 

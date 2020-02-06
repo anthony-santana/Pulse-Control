@@ -220,7 +220,7 @@ void XACC_QuaC_AddQubitDecay(int in_qubitIdx, double in_kappa)
     add_lin(in_kappa, qubits[in_qubitIdx]);
 }
 
-operator* GetQubitOperator(operator qubitOp, const char* in_op)
+operator GetQubitOperator(operator qubitOp, const char* in_op)
 {
     if (strcmp(in_op, "SM") == 0) {
         // Sigma minus, i.e. itself
