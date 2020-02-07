@@ -60,6 +60,8 @@ bool g_wasInitialized = false;
 int g_nbTimeDepChannels = 0;
 bool g_enableTimeSteppingDataCollection = false;
 
+double g_gateStartTime = 0.0;
+
 #define ASSERT_QUBIT_INDEX(qubitIdx) \
     if (qubitIdx > nbQubits) \
     { \
@@ -112,34 +114,22 @@ int XACC_QuaC_Initialize(int in_nbQubit)
     return 0;
 }
 
-int XACC_QuaC_AddInstruction(const char* in_op, const int* in_qbitOperands, int in_qbitOperandCount, int in_argCount, char** in_args)
+int XACC_QuaC_AddDigitalInstructionU3(int in_qubitIdx, double in_theta, double in_phi, double in_lambda, double in_startTime)
 {
-    // Prototype only
-    if (strcmp(in_op, "H") == 0)
+    LOG_INFO("Add U3(%lf,%lf,%lf) q[%d] @ t = %lf \n", in_theta, in_phi, in_lambda, in_qubitIdx, in_startTime);
+    circuit  circ;
+    create_circuit(&circ, 1);
+    add_gate_to_circuit(&circ, 0.0, U3, in_qubitIdx, in_theta, in_phi, in_lambda);
+    if (in_startTime > g_gateStartTime)
     {
-        if (in_qbitOperandCount == 1)
-        {
-            add_gate_to_circuit(&g_circuit, 1*gate_time_step, HADAMARD, in_qbitOperands[0]); 
-        }
-        else
-        {
-            return -1;
-        }        
+        g_gateStartTime = in_startTime;
     }
-    if (strcmp(in_op, "CNOT") == 0)
+    else
     {
-        if (in_qbitOperandCount == 2)
-        {
-            add_gate_to_circuit(&g_circuit, 1*gate_time_step, CNOT, in_qbitOperands[0], in_qbitOperands[1]); 
-        }
-        else
-        {
-            return -1;
-        }
+        g_gateStartTime += g_dt;
     }
-    // TODO
     
-    // Success
+    start_circuit_at_time(&circ, g_gateStartTime);
     return 0;
 }
 
@@ -179,7 +169,9 @@ void XACC_QuaC_Finalize()
         }
     }
    
-
+    _num_circuits = 0;
+    _current_circuit = 0;
+    g_gateStartTime = 0.0;
     QuaC_clear();
 }
 

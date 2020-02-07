@@ -183,8 +183,8 @@ namespace {
    std::string constructPulseCommandDef(xacc::quantum::Gate& in_gate)
    {
       const auto getGateCommandDefName = [](xacc::quantum::Gate& in_gate) -> std::string {
-         static std::locale loc;
-         const std::string gateName = std::tolower(in_gate.name(), loc);
+         std::string gateName = in_gate.name();
+         std::transform(gateName.begin(), gateName.end(), gateName.begin(), [](unsigned char c) { return std::tolower(c); });
          if (gateName == "cnot")
          {
             return "cx";
@@ -208,7 +208,52 @@ namespace {
    std::shared_ptr<xacc::CompositeInstruction> constructU3CmdDefComposite(size_t qIdx)
    {
       const auto cmdDefName = "pulse::u3_" + std::to_string(qIdx);
-      return xacc::ir::asComposite(xacc::getContributedService<xacc::Instruction>(cmdDefName));
+      // If we have a pulse cmd-def defined for U3:
+      if (xacc::hasContributedService<xacc::Instruction>(cmdDefName))
+      {
+         return xacc::ir::asComposite(xacc::getContributedService<xacc::Instruction>(cmdDefName));
+      }
+      // Otherwise, we will use *digital* version of the U3 gate,
+      // i.e. QuaC will simulate a perfect U3 gate.
+      // This is useful for quantum process tomography simulation whereby we inject additional gates around the core pulse instruction.
+      // In that case, the pulse is simulated dynamically, other injected gates are simulated digitally.
+      const auto digitalCmdDefName = "digital::u3_" + std::to_string(qIdx); 
+      if (xacc::hasContributedService<xacc::Instruction>(digitalCmdDefName))
+      {
+         return xacc::ir::asComposite(xacc::getContributedService<xacc::Instruction>(digitalCmdDefName));
+      }
+      else
+      {
+         auto provider = xacc::getIRProvider("quantum");
+         auto digitalCmdDef = provider->createComposite(digitalCmdDefName);
+         // We create a composite instruction for this digital gate.
+         // Each angle variable (theta, phi, lambda) will be added as a component pulse
+         // of this composite.  
+         // By doing this, we create a uniform structure of a pulse program (easy for the Scheduler and Visitor)
+         digitalCmdDef->addVariables({"theta", "phi", "lambda"});
+         
+         auto digitalPulse1 = std::make_shared<xacc::quantum::Pulse>(digitalCmdDefName + "_theta");
+         auto digitalPulse2 = std::make_shared<xacc::quantum::Pulse>(digitalCmdDefName + "_phi");
+         auto digitalPulse3 = std::make_shared<xacc::quantum::Pulse>(digitalCmdDefName + "_lambda");
+
+         digitalPulse1->setBits({qIdx});
+         digitalPulse2->setBits({qIdx});
+         digitalPulse3->setBits({qIdx});
+
+         // Set the parameter for each component pulse.
+         InstructionParameter theta("theta");
+         digitalPulse1->setParameter(0, theta);
+         InstructionParameter phi("phi");
+         digitalPulse2->setParameter(0, phi);
+         InstructionParameter lambda("lambda");
+         digitalPulse3->setParameter(0, lambda);
+         // Add those pulses to the *digital* cmd_def            
+         digitalCmdDef->addInstruction(digitalPulse1);
+         digitalCmdDef->addInstruction(digitalPulse2);
+         digitalCmdDef->addInstruction(digitalPulse3);        
+         xacc::contributeService(digitalCmdDefName, digitalCmdDef);
+         return digitalCmdDef;
+      }
    }
 }
 
@@ -371,6 +416,62 @@ namespace QuaC {
             else if (pulseName == "acquire")
             {
                m_measureQubits.emplace(pulse->bits()[0]);
+            }
+            else if (pulseName.rfind("digital::u3_", 0) == 0) 
+            {
+               // Got a *digital* U3 pulse, collect all the angles
+               const auto stringEndsWith = [](const std::string& in_str, const std::string& in_suffix) -> bool {
+                  if (in_suffix.size() > in_str.size()) 
+                  {
+                     return false;
+                  }
+                  
+                  return std::equal(in_suffix.rbegin(), in_suffix.rend(), in_str.rbegin());
+               };
+
+               double theta = 0.0;
+               double phi = 0.0;
+               double lambda = 0.0;
+               bool success = true;
+               // We expect exactly 3 component pulses for theta, phi, and lambda in the correct order. 
+               if (stringEndsWith(pulseName, "theta") && it.hasNext())
+               {
+                  auto phiInst = it.next();
+                  const auto phiInstName = phiInst->name();
+                  if (stringEndsWith(phiInstName, "phi") && it.hasNext())
+                  {
+                     auto lambdaInst = it.next();
+                     const auto lambdaInstName = lambdaInst->name();
+                     if (stringEndsWith(lambdaInstName, "lambda"))
+                     {
+                        // Success: get the 3 expected *digital* pulses which capture the 3 angles
+                        theta = pulse->getParameter(0).as<double>();
+                        phi = phiInst->getParameter(0).as<double>();
+                        lambda = lambdaInst->getParameter(0).as<double>();
+                     }
+                     else
+                     {
+                        success = false;
+                     }
+                  }
+                  else
+                  {
+                     success = false;
+                  }
+               }
+               else
+               {
+                  success = false;
+               }
+
+               if (success) 
+               {                
+                  XACC_QuaC_AddDigitalInstructionU3(pulse->bits()[0], theta, phi, lambda, pulse->start()*m_pulseChannelController->GetBackendConfigs().dt);
+               }
+               else
+               {
+                  xacc::error("Illegal instructions detected. Abort!\n");
+               }
             }
             else
             {

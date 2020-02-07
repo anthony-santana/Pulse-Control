@@ -42,12 +42,10 @@ typedef struct XaccPulseChannelProvider PulseChannelProvider;
 // TODO: define more options
 __attribute__ ((visibility ("default"))) extern int XACC_QuaC_Initialize(int in_nbQubit);
 
-// Add an IR instruction to the current QuaC circuit
-// in_op IR operation (as string) we wish to add.
-// param args The operands, if any, for the operation.
+// Add a U3 digital instruction to QuaC at a specific time 
 // return 0 Success - operatation is added; 
 // otherwise (>0) Failure - operatation cannot be added
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_AddInstruction(const char* in_op, const int* in_qbitOperands, int in_qbitOperandCount, int in_argCount, char** in_args);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_AddDigitalInstructionU3(int in_qubitIdx, double in_theta, double in_phi, double in_lambda, double in_startTime);
 
 // Execute the circuit and collect data specified by input params
 // Returns: JSON-encoded data of the result.

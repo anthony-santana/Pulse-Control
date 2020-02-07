@@ -57,7 +57,10 @@ namespace QuaC {
 
     void QuaC_Accelerator::execute(std::shared_ptr<AcceleratorBuffer> buffer, const std::vector<std::shared_ptr<CompositeInstruction>> compositeInstructions)  
     {
-       // TODO
+       for (const auto& inst: compositeInstructions)
+       {
+           execute(buffer, inst);
+       }
     }
 
     void QuaC_Accelerator::contributeInstructions(const std::string& custom_json_config) 

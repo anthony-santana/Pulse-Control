@@ -87,5 +87,6 @@ extern int _gate_array_initialized;
 void (*_get_val_j_functions_gates[MAX_GATES])(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
 circuit _circuit_list[MAX_GATES];
 extern int _num_circuits;
+extern int _current_circuit;
 
 #endif
