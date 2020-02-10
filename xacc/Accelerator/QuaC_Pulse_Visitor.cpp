@@ -274,20 +274,22 @@ namespace QuaC {
       // After we have adjust the pulse duration (if missing)
       // Use XACC Pulse scheduler to schedule pulses:
       // Debug:
-      std::cout << "Before Scheduled : \n" << in_pulseInstruction->toString() << "\n";
+      // std::cout << "Before Scheduled : \n" << in_pulseInstruction->toString() << "\n";
    
       auto scheduler = xacc::getService<xacc::Scheduler>("pulse");
       scheduler->schedule(in_pulseInstruction);
       
       // Debug:
-      std::cout << "After Scheduled : \n" << in_pulseInstruction->toString() << "\n";
+      // std::cout << "After Scheduled : \n" << in_pulseInstruction->toString() << "\n";
    }
 
    void PulseVisitor::solve() 
    {
       // Step 1: schedule the pulse program
       schedulePulses(m_pulseComposite);      
+      
       m_measureQubits.clear();
+      m_buffer->clearMeasurements();
       
       // Step 2: initialize the pulse channel controller with the scheduled pulses
       PulseScheduleRegistry allPulseSchedules;

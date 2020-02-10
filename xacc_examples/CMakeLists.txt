@@ -10,3 +10,6 @@ target_link_libraries(cross_resonant_interaction PRIVATE xacc_quac xacc::quantum
 
 add_executable(pulse_optimization pulse_optimization.cpp)
 target_link_libraries(pulse_optimization PRIVATE xacc_quac xacc::quantum_gate)
+
+add_executable(quantum_process_tomography quantum_process_tomography.cpp)
+target_link_libraries(quantum_process_tomography PRIVATE xacc_quac xacc::quantum_gate)

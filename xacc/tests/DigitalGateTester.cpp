@@ -250,6 +250,85 @@ TEST(DigitalGateTester, testMixPulseDigital)
     EXPECT_NEAR(prob1, 1.0, 0.1);  
 }
 
+TEST(DigitalGateTester, testQuantumProcessTomography)
+{
+    const std::string hamiltonianJson =  R"(
+        {
+            "description": "One-qubit Hamiltonian.",
+            "h_latex": "",
+            "h_str": ["0.5*epsilon*Z0", "0.5*delta*X0||D0"],
+            "osc": {},
+            "qub": {
+                "0": 2
+            },
+            "vars": {
+                "epsilon": 0.0,
+                "delta": 6.2831853
+            }
+        }
+    )";
+
+    auto qpt = xacc::getService<xacc::Algorithm>("qpt");
+    // First: use Qpp backend to get the *reference* data
+    auto qppReg = xacc::qalloc(1);    
+    // Use QPP accelerator   
+    auto acc = xacc::getAccelerator("qpp", {std::make_pair("shots", 1024)});
+    auto compiler = xacc::getCompiler("xasm");
+    auto ir = compiler->compile(R"(__qpu__ void f(qbit q) {
+        X(q[0]);
+    })", nullptr);
+    auto qppCompositeInstr = ir->getComposite("f");
+    qpt->initialize({ std::make_pair("circuit", qppCompositeInstr), std::make_pair("accelerator", acc)});
+    qpt->execute(qppReg);
+    qppReg->print();
+    // Reference data:
+    const auto qpp_chi_real_vec = (*qppReg)["chi-real"].as<std::vector<double>>();
+    const auto qpp_chi_imag_vec = (*qppReg)["chi-imag"].as<std::vector<double>>(); 
+
+    // Now, let's use QuaC to perform a Pi pulse (X gate)
+    // Load Hamiltonian model:
+    auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
+    systemModel->loadHamiltonianJson(hamiltonianJson);
+    BackendChannelConfigs channelConfigs;
+    channelConfigs.dt = 0.005;
+    channelConfigs.loFregs_dChannels.emplace_back(0.0);
+    const size_t nbSamples = 100;
+
+    // Just use a simple Pi pulse
+    channelConfigs.addOrReplacePulse("square", QuaC::SquarePulse(nbSamples));
+    systemModel->setChannelConfigs(channelConfigs);    
+    auto qubitReg = xacc::qalloc(1);    
+    auto provider = xacc::getIRProvider("quantum");
+    auto compositeInst = provider->createComposite("pulse_qpt");
+    // X Pi pulse
+    auto pulseInst = std::make_shared<xacc::quantum::Pulse>("square", "d0");
+    pulseInst->setBits({0});
+    compositeInst->addInstruction(pulseInst);
+
+    // We run 10000 shots
+    const int NB_SHOTS = 10000;
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel), std::make_pair("shots", NB_SHOTS)  });    
+    // Perform a QPT with QuaC
+    qpt->initialize({ std::make_pair("circuit", compositeInst), std::make_pair("accelerator", quaC), std::make_pair("optimize-circuit", false)});
+    qpt->execute(qubitReg);    
+    qubitReg->print();
+
+    // QuaC result data:
+    const auto quac_chi_real_vec = (*qubitReg)["chi-real"].as<std::vector<double>>();
+    const auto quac_chi_imag_vec = (*qubitReg)["chi-imag"].as<std::vector<double>>(); 
+    
+    EXPECT_EQ(qpp_chi_real_vec.size(), qpp_chi_imag_vec.size());
+    EXPECT_EQ(qpp_chi_real_vec.size(), quac_chi_real_vec.size());
+    EXPECT_EQ(qpp_chi_imag_vec.size(), quac_chi_imag_vec.size());
+
+    for (int i = 0; i < qpp_chi_real_vec.size(); ++i)
+    {
+        // Check that all elements in the chi vector are matched.
+        EXPECT_NEAR(qpp_chi_real_vec[i], quac_chi_real_vec[i], 0.1);
+        EXPECT_NEAR(qpp_chi_imag_vec[i], quac_chi_imag_vec[i], 0.1);
+    }
+}
+
 int main(int argc, char **argv) 
 {
   xacc::Initialize(argc, argv);
