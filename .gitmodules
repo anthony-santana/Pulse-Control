@@ -1,0 +1,3 @@
+[submodule "xacc/tpls/cereal"]
+	path = xacc/tpls/cereal
+	url = https://github.com/USCiLab/cereal.git

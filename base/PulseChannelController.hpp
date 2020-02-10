@@ -38,6 +38,12 @@ struct BackendChannelConfigs
     void addOrReplacePulse(const std::string& in_pulseName, const std::vector<std::complex<double>>& in_pulseData);
     size_t getPulseSampleSize(const std::string& in_pulseName) const;
     double getPulseDuration(const std::string& in_pulseName) const;
+
+    template<class Archive>
+    void serialize(Archive& archive)
+    {
+        archive(loFregs_dChannels, loFregs_uChannels, dt, pulseLib); 
+    }
 };
 
 
@@ -45,6 +51,12 @@ struct PulseControlContext
 {
     // Register values (from measurements) which may be used to control pulse sequences.
     std::unordered_map<size_t, bool> registerValues;
+    
+    template<class Archive>
+    void serialize(Archive& archive)
+    {
+        archive(registerValues); 
+    }
 };
 
 // A default non-conditional entry, always returns true (i.e. activate the pulse sequence)
@@ -69,6 +81,12 @@ struct PulseScheduleEntry
      stopTime(0.0),
      conditionalFunc(DEFAULT_NON_CONDITIONAL_FN)
     {}
+
+    template<class Archive>
+    void serialize(Archive& archive)
+    {
+        archive(name, startTime, stopTime); 
+    }
 };
 
 // A frame change command for a channel.
@@ -89,6 +107,12 @@ struct FrameChangeCommandEntry
         phase(0.0),
         conditionalFunc(DEFAULT_NON_CONDITIONAL_FN)
     {}
+
+    template<class Archive>
+    void serialize(Archive& archive)
+    {
+        archive(startTime, phase); 
+    }
 };
 
 
@@ -99,7 +123,7 @@ class PulseChannelController
 {
 public: 
     PulseChannelController(const BackendChannelConfigs& in_backendConfig);
-    
+    PulseChannelController(): m_currentTime(-1.0) {}
     // Initialize the pulse controller pulse/command schedules 
     void Initialize(const PulseScheduleRegistry& in_pulseSchedule, const FrameChangeScheduleRegistry& in_fcSchedule);
 
@@ -115,6 +139,13 @@ public:
     int GetControlChannelId(int in_uChannelIdx) const;
 
     BackendChannelConfigs& GetBackendConfigs() { return m_configs; }
+
+    template<class Archive>
+    void serialize(Archive& archive)
+    {
+        archive(m_isInitialized, m_configs, m_pulseSchedules, m_fcSchedules, m_accumulatedFcPhases, m_loFreqs); 
+    }
+
 private:
     // Move the internal tracking time clock (i.e. checking all the pulse schedules w.r.t. the current time)
     void Tick(double in_time);

@@ -8,10 +8,8 @@
 #include "xacc.hpp"
 #include "json.hpp"
 #include <regex>
-
-extern "C" {
-#include "interface_xacc_ir.h"
-}
+#include "Functor.hpp"
+#include "Executor.hpp"
 
 namespace {
     std::string removeWhiteSpaces(const std::string& in_str)
@@ -418,7 +416,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::fromString(const std::strin
     return std::make_unique<HamiltonianSumTerm>(std::move(loopOps));
 }
 
-void HamiltonianTimeIndependentTerm::apply(IChannelNameResolver* in_channelResolver)
+void HamiltonianTimeIndependentTerm::apply(IChannelNameResolver* in_channelResolver, FunctorExecutorBase* in_executor)
 {
     // This constraint can be lifted if necessary, just add API's to the backend. 
     if (m_operators.size() > 2)
@@ -428,38 +426,65 @@ void HamiltonianTimeIndependentTerm::apply(IChannelNameResolver* in_channelResol
     
     if (m_operators.size() == 1)
     {
-        const auto op = m_operators.front();        
-        XACC_QuaC_AddConstHamiltonianTerm1(OperatorToString(op.first).c_str(), op.second, { m_coefficient.real(), m_coefficient.imag()});    
+        const auto op = m_operators.front();          
+        std::vector<std::pair<std::string, int>> opList;
+        opList.emplace_back(OperatorToString(op.first), op.second);
+        
+        in_executor->PostFunctorAsync(std::make_unique<AddHamiltonianTerm>(
+            m_coefficient,
+            opList
+        ));      
     }
     else if (m_operators.size() == 2)
     {
         const auto op1 = m_operators[0];
         const auto op2 = m_operators[1];
-        XACC_QuaC_AddConstHamiltonianTerm2(OperatorToString(op1.first).c_str(), op1.second, OperatorToString(op2.first).c_str(), op2.second, { m_coefficient.real(), m_coefficient.imag() });
+        std::vector<std::pair<std::string, int>> opList;
+        opList.emplace_back(OperatorToString(op1.first), op1.second);
+        opList.emplace_back(OperatorToString(op2.first), op2.second);
+        in_executor->PostFunctorAsync(std::make_unique<AddHamiltonianTerm>(
+            m_coefficient,
+            opList
+        ));      
     }
 }
 
-void HamiltonianTimeDependentTerm::apply(IChannelNameResolver* in_channelResolver)
+void HamiltonianTimeDependentTerm::apply(IChannelNameResolver* in_channelResolver, FunctorExecutorBase* in_executor)
 {
     // We only support multiplication of up to two operators
     assert(m_operators.size() == 1 || m_operators.size() == 2);
     if (m_operators.size() == 1)
     {
-        XACC_QuaC_AddTimeDependentHamiltonianTerm1(OperatorToString(m_operators[0].first).c_str(), m_operators[0].second, in_channelResolver->GetChannelId(m_channelName), m_coefficient);
+        const auto op = m_operators.front();          
+        std::vector<std::pair<std::string, int>> opList;
+        opList.emplace_back(OperatorToString(op.first), op.second);
+        
+        in_executor->PostFunctorAsync(std::make_unique<AddHamiltonianTerm>(
+            m_coefficient,
+            opList,
+            in_channelResolver->GetChannelId(m_channelName)
+        ));              
     }
     else if (m_operators.size() == 2)
     {
-        XACC_QuaC_AddTimeDependentHamiltonianTerm2(OperatorToString(m_operators[0].first).c_str(), m_operators[0].second, 
-                                                    OperatorToString(m_operators[1].first).c_str(), m_operators[1].second, 
-                                                    in_channelResolver->GetChannelId(m_channelName), m_coefficient);
+        const auto op1 = m_operators[0];
+        const auto op2 = m_operators[1];
+        std::vector<std::pair<std::string, int>> opList;
+        opList.emplace_back(OperatorToString(op1.first), op1.second);
+        opList.emplace_back(OperatorToString(op2.first), op2.second);
+        in_executor->PostFunctorAsync(std::make_unique<AddHamiltonianTerm>(
+            m_coefficient,
+            opList,
+            in_channelResolver->GetChannelId(m_channelName)
+        ));
     }    
 }
 
-void HamiltonianSumTerm::apply(IChannelNameResolver* in_channelResolver)
+void HamiltonianSumTerm::apply(IChannelNameResolver* in_channelResolver, FunctorExecutorBase* in_executor)
 {
     for (auto& term : m_terms)
     {
-        term->apply(in_channelResolver);
+        term->apply(in_channelResolver, in_executor);
     }
 }
 

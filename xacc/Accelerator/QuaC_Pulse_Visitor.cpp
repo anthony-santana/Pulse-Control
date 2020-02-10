@@ -2,107 +2,13 @@
 #include "xacc.hpp"
 #include "xacc_service.hpp"
 #include <chrono>
-#include <iomanip>
 #include <cassert>
 #include <random>
-#include <chrono> 
 #include "Scheduler.hpp"
 #include "PulseSystemModel.hpp"
-
-extern "C" {
-#include "interface_xacc_ir.h"
-}
+#include "Functor.hpp"
 
 namespace {
-   void writeTimesteppingDataToCsv(const std::string& in_fileName, const TSData* const in_tsData, int in_nbSteps, int in_nbQubits)
-   {
-      if (in_nbSteps < 1)
-      {
-         return;
-      }
-
-      const auto stringEndsWith = [](const std::string& in_string, const std::string& in_ending) {
-         if (in_ending.size() > in_string.size()) 
-         {
-            return false;
-         }
-
-         return std::equal(in_ending.rbegin(), in_ending.rend(), in_string.rbegin());   
-      };
-
-      const auto getCurrentTimeString = [](){
-         const auto currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-         std::stringstream ss;
-         ss << std::put_time(std::localtime(&currentTime), "%Y%m%d_%X");
-         return ss.str();
-      };
-
-      std::ofstream outputFile;
-      std::string fileName = stringEndsWith(in_fileName, ".csv") ?  in_fileName.substr(0, in_fileName.size() - 4) : in_fileName;
-      // Add a timestamp to prevent duplicate
-      fileName += "_";
-      fileName += getCurrentTimeString();
-      fileName += ".csv";
-      outputFile.open(fileName, std::ofstream::out);
-
-      if(!outputFile.is_open())
-      {
-         std::cout << "Cannot open CSV file '" << fileName << "' for writing!\n";
-		   return;
-	   }
-
-      const auto nbChannels = in_tsData[0].nbChannels;      
-      const auto nbPopulations = in_tsData[0].nbPops;
-      // Header
-      outputFile << "Time, "; 
-      for(int j = 0; j < nbChannels; ++j)
-      {
-         outputFile << "Channel[" << j << "], ";
-      }     
-      for(int j = 0; j < nbPopulations; ++j)
-      {
-         outputFile << "Population[" << j << "], ";
-      }
-      
-      for(int j = 0; j < in_nbQubits; ++j)
-      {
-         outputFile << "<X[" << j << "]>, <Y[" << j << "]>, <Z[" << j << "]>, ";
-      }
-
-      outputFile << "\n";
-
-      // Data
-      for (int i = 0; i < in_nbSteps; ++i)
-      {
-         const TSData dataAtStep = in_tsData[i];
-         // First column is time:
-         outputFile << dataAtStep.time << ", ";
-         // Channel data columns
-         for(int j = 0; j < nbChannels; ++j)
-         {
-            outputFile << dataAtStep.channelData[j] << ", ";
-         }
-         // Population columns
-         for(int j = 0; j < nbPopulations; ++j)
-         {
-            outputFile << dataAtStep.populations[j] << ", ";
-         }
-         
-         // Pauli expectations
-         for(int j = 0; j < in_nbQubits; ++j)
-         {
-            for (int ii = 0; ii < 3; ++ii)
-            {
-               outputFile << dataAtStep.pauliExpectations[3*j + ii] << ", ";
-            }
-         }
-         
-         outputFile << "\n";
-      }
-      outputFile.close();
-      std::cout << "Time-stepping data is written to file '" << fileName << "'\n";
-   } 
-
    enum class ChannelType { Invalid, D, U };
    std::pair<ChannelType, int> PulseChannelFromString(const std::string& in_channelName)
    {
@@ -257,10 +163,6 @@ namespace {
    }
 }
 
-// Export the time-stepping data to csv (e.g. for plotting)
-// Uncomment to get the data exported
-// #define EXPORT_TS_DATA_AS_CSV
-
 namespace QuaC {   
    void PulseVisitor::initialize(std::shared_ptr<AcceleratorBuffer> buffer, PulseSystemModel* in_systemModel, const HeterogeneousMap& in_params) 
    {
@@ -281,30 +183,35 @@ namespace QuaC {
          {
             qubitDims.emplace_back(m_systemModel->getHamiltonian().getQubitDimension(i));
          }
+         std::unordered_map<int, double> qbitDecays;
+         for (int i = 0; i < buffer->size(); ++i)
+         {
+            const auto qubitT1 =  m_systemModel->getQubitT1(i);
+            if (qubitT1 > 0.0)
+            {
+               qbitDecays.emplace(i, 1.0/qubitT1);
+            }
+         }
+         
+         std::unordered_map<int, double> initialPops;
+         for (int i = 0; i < buffer->size(); ++i)
+         {
+            initialPops.emplace(i, m_systemModel->getQubitInitialPopulation(i));
+         }
 
          // Step 1: Initialize the QuaC solver
-         XACC_QuaC_InitializePulseSim(buffer->size(), reinterpret_cast<PulseChannelProvider*>(m_pulseChannelController.get()), qubitDims.data());
-         // Debug:
-         XACC_QuaC_SetLogVerbosity(DEBUG);
+         m_executor.PostFunctorAsync(std::make_unique<InitializeFunctor>(
+                        buffer->size(), 
+                        qubitDims, 
+                        qbitDecays, 
+                        initialPops));
       }
 
       {
          // Step 2: set up the Hamiltonian
          for (const auto& term : m_systemModel->getHamiltonian().getTerms())
          {
-            term->apply(this);
-         }
-
-         for (int i = 0; i < buffer->size(); ++i)
-         {
-            // TODO: try to track down why QuaC is throwing exceptions if there is no decay!!!
-            // For now, if none decay (T1) specified, just use a super small value.
-            const double DEFAULT_KAPPA = 1e-128;
-            const double kappa = m_systemModel->getQubitT1(i) == 0.0 ? DEFAULT_KAPPA : (1.0 / m_systemModel->getQubitT1(i));
-            XACC_QuaC_AddQubitDecay(i, kappa);
-
-            const double initialPop = m_systemModel->getQubitInitialPopulation(i);
-            XACC_QuaC_SetInitialPopulation(i, initialPop);
+            term->apply(this, &m_executor);
          }
       }
 
@@ -327,6 +234,7 @@ namespace QuaC {
       {
          case ChannelType::D: return m_pulseChannelController->GetDriveChannelId(channelTypeIdPair.second);
          case ChannelType::U: return m_pulseChannelController->GetControlChannelId(channelTypeIdPair.second);
+         case ChannelType::Invalid: return -1;
       }
 
       return -1;
@@ -466,7 +374,13 @@ namespace QuaC {
 
                if (success) 
                {                
-                  XACC_QuaC_AddDigitalInstructionU3(pulse->bits()[0], theta, phi, lambda, pulse->start()*m_pulseChannelController->GetBackendConfigs().dt);
+                  m_executor.PostFunctorAsync(std::make_unique<AddGateU3>(
+                     pulse->bits()[0], 
+                     theta, 
+                     phi, 
+                     lambda, 
+                     pulse->start()*m_pulseChannelController->GetBackendConfigs().dt
+                  ));
                }
                else
                {
@@ -522,9 +436,6 @@ namespace QuaC {
     
       int stepMax = static_cast<int>(2.0 * std::ceil(simStopTime/dt));
       
-      TSData* tsData;  
-      int nbSteps;
-      
       // Check if there is a non-zero LO freq defined, then we need to disable adaptive time-stepping.
       // Adaptive time-stepping doesn't handle modulated pulse signals well, hence can cause significant errors.
       // Hence, if we see that there are non-zero LO freqs, we must disable adaptive time-stepping.
@@ -541,29 +452,23 @@ namespace QuaC {
             break;
          }
       }
-
-      if (hasLOfreqs)
-      {
-         // Disable adaptive time-stepping
-         XACC_QuaC_DisableAdaptiveTimestepping();
-      }
-
-
+      const bool adaptiveTimeStep = !hasLOfreqs;
       // Step 3: Run the simulation
-      const auto resultSize = XACC_QuaC_RunPulseSim(dt, simStopTime, stepMax, &results, &nbSteps, &tsData);
+      SerializationType resultData;
+      m_executor.CallFunctorSync(std::make_unique<StartTimestepping>(
+         *m_pulseChannelController, 
+         dt, 
+         simStopTime, 
+         stepMax,
+         adaptiveTimeStep), resultData);
+      
+      SimResult simResult;
+      SerializationInputDataType inputSerialization(resultData); 
+      inputSerialization(simResult);
       // We are returning the populations for all qubits
-      assert(resultSize == m_buffer->size());
-
-#ifdef EXPORT_TS_DATA_AS_CSV
-      writeTimesteppingDataToCsv("output", tsData, nbSteps, m_buffer->size());
-#endif
+      assert(simResult.finalPopulations.size() == m_buffer->size());
       // Population (occupation expectation) for each qubit
-      std::vector<double> finalPopulations;
-      for (int i = 0; i < resultSize; ++i)
-      {
-         finalPopulations.emplace_back(results[i]);
-      }
-
+      const auto&  finalPopulations = simResult.finalPopulations;
       m_buffer->addExtraInfo("<O>", finalPopulations);
       
       // If the buffer has the "Concurrence" info key, fill in that field
@@ -587,8 +492,16 @@ namespace QuaC {
                // Validate the input
                if (qIdx1 != qIdx2 && qIdx1 < m_buffer->size() && qIdx2 < m_buffer->size())
                {
+                  SerializationType resultData;
+                  m_executor.CallFunctorSync(
+                     std::make_unique<CalculateBipartiteConcurrence>(qIdx1, qIdx2), 
+                     resultData);
+                  
+                  double concurrentResult;
+                  SerializationInputDataType inputSerialization(resultData); 
+                  inputSerialization(concurrentResult);
                   // Set the result
-                  kv.second = XACC_QuaC_CalcConcurrence(qIdx1, qIdx2);
+                  kv.second = concurrentResult;
                }
             }
             catch (...)
@@ -608,8 +521,6 @@ namespace QuaC {
             m_buffer->appendMeasurement(generateResultBitString(finalPopulations));
          }
       }
-      
-      free(results);
    }
 
 
@@ -974,6 +885,6 @@ namespace QuaC {
    void PulseVisitor::finalize() 
    {     
       std::cout << "Pulse simulator: Finalized. \n";
-      XACC_QuaC_Finalize();
+      m_executor.PostFunctorAsync(std::make_unique<FinalizeFunctor>());
    }
 }

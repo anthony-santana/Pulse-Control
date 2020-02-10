@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include "Identifiable.hpp"
 
+// Forward declaration
+class FunctorExecutorBase;
+
 namespace QuaC {
 enum class Operator { X, Y, Z, SP, SM, I, O, P, NA };
 
@@ -65,7 +68,7 @@ class HamiltonianTerm
 {
 public:
     // Apply the Hamiltonian term to the backend.
-    virtual void apply(IChannelNameResolver* in_channelResolver) = 0;
+    virtual void apply(IChannelNameResolver* in_channelResolver, FunctorExecutorBase* in_executor) = 0;
     virtual ~HamiltonianTerm() {}
     virtual std::unique_ptr<HamiltonianTerm> clone() = 0;
 };
@@ -79,7 +82,7 @@ public:
         m_terms(std::move(terms))
     {}
 
-    virtual void apply(IChannelNameResolver* in_channelResolver) override;
+    virtual void apply(IChannelNameResolver* in_channelResolver, FunctorExecutorBase* in_executor) override;
     
     virtual std::unique_ptr<HamiltonianTerm> clone() override;
 
@@ -97,7 +100,7 @@ public:
         m_operators(in_ops)
     {}
     
-    virtual void apply(IChannelNameResolver* in_channelResolver) override;
+    virtual void apply(IChannelNameResolver* in_channelResolver, FunctorExecutorBase* in_executor) override;
 
     virtual std::unique_ptr<HamiltonianTerm> clone() override;
 
@@ -124,7 +127,7 @@ public:
         m_operators(in_ops)
     {}
 
-    virtual void apply(IChannelNameResolver* in_channelResolver) override;
+    virtual void apply(IChannelNameResolver* in_channelResolver, FunctorExecutorBase* in_executor) override;
     
     virtual std::unique_ptr<HamiltonianTerm> clone() override;
 

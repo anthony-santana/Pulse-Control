@@ -57,7 +57,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_Finalize();
 // Pulse simulation initialization:
 // Note: we *solve* the master equation using QuaC, not via Monte-Carlo method.
 // Hence, we don't need to have the *shots* params.
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider, const int* in_qbitDims);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_InitializePulseSim(int in_nbQubit, const int* in_qbitDims);
 
 
 __attribute__ ((visibility ("default"))) extern void XACC_QuaC_SetLogVerbosity(log_verbosity in_verboseConfig);
@@ -68,7 +68,7 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_AddQubitDecay(int
 
 // Run the Pulse simulation and return the expectation values:
 // Returns the size of the result array. Caller needs to clean up. 
-__attribute__ ((visibility ("default"))) extern int XACC_QuaC_RunPulseSim(double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData);
+__attribute__ ((visibility ("default"))) extern int XACC_QuaC_RunPulseSim(PulseChannelProvider* in_pulseDataProvider, double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData);
 
 // ====   Hamiltonian construction API's ====
 // Adding a single-operator term to the Hamiltonian:
@@ -98,4 +98,5 @@ __attribute__ ((visibility ("default"))) extern void XACC_QuaC_DisableAdaptiveTi
 // Calculate the concurrence between 2 qubits
 __attribute__ ((visibility ("default"))) extern double XACC_QuaC_CalcConcurrence(int in_qubitIdx1, int in_qubitIdx2);
 
+__attribute__ ((visibility ("default"))) extern ComplexCoefficient XACC_QuaC_GetDensityMatrixElement(int in_row, int in_column);
 // ======================================================================

@@ -8,6 +8,7 @@
 #include "AllGateVisitor.hpp"
 #include "Hamiltonian.hpp"
 #include "Pulse.hpp"
+#include "Executor.hpp"
 
 using namespace xacc;
 using namespace xacc::quantum;
@@ -20,7 +21,7 @@ namespace QuaC {
         void initialize(std::shared_ptr<AcceleratorBuffer> buffer, PulseSystemModel* in_systemModel, const HeterogeneousMap& in_params = {});
         void solve();
         void finalize();
-        virtual std::shared_ptr<PulseVisitor> clone() { return std::make_shared<PulseVisitor>(); }
+        virtual std::shared_ptr<PulseVisitor> clone() override { return std::make_shared<PulseVisitor>(); }
         virtual int GetChannelId(const std::string& in_channelName) override;
         // Gate visit
         void visit(Hadamard& h) override;
@@ -57,5 +58,7 @@ namespace QuaC {
         // Qubits that are measured.
         std::set<size_t> m_measureQubits;
         int m_shotCount;
+        // Currently, only support single process executor
+        SingleProcessFunctorExecutor m_executor;
     };    
 }

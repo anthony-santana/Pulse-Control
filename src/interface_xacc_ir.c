@@ -175,10 +175,9 @@ void XACC_QuaC_Finalize()
     QuaC_clear();
 }
 
-int XACC_QuaC_InitializePulseSim(int in_nbQubit, PulseChannelProvider* in_pulseDataProvider, const int* in_qbitDims)
+int XACC_QuaC_InitializePulseSim(int in_nbQubit, const int* in_qbitDims)
 {
     g_simulationMode = PULSE;
-    g_PulseDataProvider = in_pulseDataProvider;
     if (!g_wasInitialized)
     {
         QuaC_initialize(0, NULL);
@@ -283,8 +282,9 @@ void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubit
     add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 2, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
 }
 
-int XACC_QuaC_RunPulseSim(double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData)
+int XACC_QuaC_RunPulseSim(PulseChannelProvider* in_pulseDataProvider, double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData)
 {
+    g_PulseDataProvider = in_pulseDataProvider;
     g_dt = in_dt;
     g_timeMax = in_stopTime;
     g_stepsMax = in_stepMax;
@@ -411,4 +411,14 @@ double XACC_QuaC_CalcConcurrence(int in_qubitIdx1, int in_qubitIdx2)
     destroy_dm(tmpPsi);
 
     return concurrenceResult;
+}
+
+ComplexCoefficient XACC_QuaC_GetDensityMatrixElement(int in_row, int in_column)
+{
+    PetscScalar dmElement;
+    get_dm_element(psi, in_row, in_column, &dmElement);
+    ComplexCoefficient result;
+    result.real = PetscRealPart(dmElement);
+    result.imag = PetscImaginaryPart(dmElement);
+    return result;
 }

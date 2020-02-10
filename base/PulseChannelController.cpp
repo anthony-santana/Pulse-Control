@@ -214,6 +214,12 @@ void PulseChannelController::Tick(double in_time)
 
 double PulseChannelController::GetPulseValue(int in_channelId, double in_time)
 {
+    if (m_currentTime < 0)
+    {
+        m_accumulatedFcPhases = std::vector<double>(m_configs.loFregs_dChannels.size() + m_configs.loFregs_uChannels.size(), 0.0);
+        m_activePulse = std::vector<const PulseScheduleEntry*>(m_configs.loFregs_dChannels.size() + m_configs.loFregs_uChannels.size(), nullptr);
+    } 
+    
     assert(in_channelId < m_activePulse.size());
     
     if (in_time > m_currentTime)
