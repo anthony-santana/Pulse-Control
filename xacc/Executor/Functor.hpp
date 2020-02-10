@@ -29,7 +29,7 @@ struct InitializeFunctor: public FunctorBase
     std::vector<double> m_qbitInitialPops;
     bool m_verbose;
 };
-DECLARE_CORE_TYPE(FunctorBase, InitializeFunctor);
+DECLARE_CORE_TYPE(FunctorBase, InitializeFunctor)
 
 struct AddHamiltonianTerm: public FunctorBase
 {
@@ -46,7 +46,7 @@ struct AddHamiltonianTerm: public FunctorBase
     std::complex<double> m_coeff;
     std::vector<std::pair<std::string, int>> m_ops;
 }; 
-DECLARE_CORE_TYPE(FunctorBase, AddHamiltonianTerm);
+DECLARE_CORE_TYPE(FunctorBase, AddHamiltonianTerm)
 
 
 struct AddGateU3: public FunctorBase
@@ -66,7 +66,7 @@ struct AddGateU3: public FunctorBase
     double m_lambda;
     double m_startTime;
 }; 
-DECLARE_CORE_TYPE(FunctorBase, AddGateU3);
+DECLARE_CORE_TYPE(FunctorBase, AddGateU3)
 
 
 struct StartTimestepping: public FunctorBase
@@ -86,7 +86,7 @@ struct StartTimestepping: public FunctorBase
     int m_stepMax;
     bool m_adaptive;
 }; 
-DECLARE_CORE_TYPE(FunctorBase, StartTimestepping);
+DECLARE_CORE_TYPE(FunctorBase, StartTimestepping)
 
 struct CalculateBipartiteConcurrence: public FunctorBase
 {
@@ -103,7 +103,7 @@ struct CalculateBipartiteConcurrence: public FunctorBase
         archive(m_qubit1, m_qubit2); 
     }
 };
-DECLARE_CORE_TYPE(FunctorBase, CalculateBipartiteConcurrence);
+DECLARE_CORE_TYPE(FunctorBase, CalculateBipartiteConcurrence)
 
 
 struct GetDensityMatrixElement: public FunctorBase
@@ -121,7 +121,7 @@ struct GetDensityMatrixElement: public FunctorBase
         archive(m_row, m_column); 
     }
 };
-DECLARE_CORE_TYPE(FunctorBase, GetDensityMatrixElement);
+DECLARE_CORE_TYPE(FunctorBase, GetDensityMatrixElement)
 
 struct FinalizeFunctor: public FunctorBase
 {
@@ -130,7 +130,7 @@ struct FinalizeFunctor: public FunctorBase
     template<class Archive>
     void serialize(Archive& archive) {}
 };
-DECLARE_CORE_TYPE(FunctorBase, FinalizeFunctor);
+DECLARE_CORE_TYPE(FunctorBase, FinalizeFunctor)
 
 struct TimeSteppingData {
     double time;

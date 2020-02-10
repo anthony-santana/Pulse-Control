@@ -313,7 +313,7 @@ std::unique_ptr<HamiltonianTerm> HamiltonianSumTerm::fromString(const std::strin
         std::string result = in_string;
         std::smatch base_match;
         
-        const bool matchResult = std::regex_search(result, base_match, loopValRegex);
+        std::regex_search(result, base_match, loopValRegex);
         std::unordered_map<std::string, int> loopVarExprs;
         auto searchStart(result.cbegin());
         while(std::regex_search(searchStart, result.cend(), base_match, loopValRegex)) 

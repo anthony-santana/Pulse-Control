@@ -1,4 +1,4 @@
-#pragma one
+#pragma once
 
 #include "Identifiable.hpp"
 #include "OptionsProvider.hpp"

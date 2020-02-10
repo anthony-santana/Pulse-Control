@@ -179,7 +179,7 @@ namespace QuaC {
       
       {
          std::vector<int> qubitDims;
-         for (size_t i = 0; i < buffer->size(); ++i)
+         for (int i = 0; i < buffer->size(); ++i)
          {
             qubitDims.emplace_back(m_systemModel->getHamiltonian().getQubitDimension(i));
          }
@@ -424,9 +424,7 @@ namespace QuaC {
       // Initialize the channel controller with pulse and fc commands     
       m_pulseChannelController->Initialize(allPulseSchedules, allFcSchedules);
 
-      std::cout << "Pulse simulator: solving the Hamiltonian. \n";
-      double* results = nullptr;
-      
+      std::cout << "Pulse simulator: solving the Hamiltonian. \n";     
       // Note: This dt is the solver step size (which may be adaptive),
       // this should be smaller than the Pulse dt (sample step size).
       double dt = m_pulseChannelController->GetBackendConfigs().dt/1000.0;
@@ -466,7 +464,7 @@ namespace QuaC {
       SerializationInputDataType inputSerialization(resultData); 
       inputSerialization(simResult);
       // We are returning the populations for all qubits
-      assert(simResult.finalPopulations.size() == m_buffer->size());
+      assert(static_cast<int>(simResult.finalPopulations.size()) == m_buffer->size());
       // Population (occupation expectation) for each qubit
       const auto&  finalPopulations = simResult.finalPopulations;
       m_buffer->addExtraInfo("<O>", finalPopulations);

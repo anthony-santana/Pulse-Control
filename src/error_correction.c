@@ -719,7 +719,7 @@ void create_encoded_qubit(encoded_qubit *new_encoder,encoder_type my_encoder_typ
     (*new_encoder).num_qubits = num_qubits;
     (*new_encoder).my_encoder_type = NONE;
     (*new_encoder).qubits = malloc(num_qubits*sizeof(PetscInt));
-    va_start(ap,num_qubits);
+    va_start(ap,my_encoder_type);
     for (i=0;i<num_qubits;i++){
       qubit = va_arg(ap,int);
       (*new_encoder).qubits[i] = qubit;
@@ -735,7 +735,7 @@ void create_encoded_qubit(encoded_qubit *new_encoder,encoder_type my_encoder_typ
     (*new_encoder).num_qubits = num_qubits;
     (*new_encoder).my_encoder_type = BIT;
     (*new_encoder).qubits = malloc(num_qubits*sizeof(PetscInt));
-    va_start(ap,num_qubits);
+    va_start(ap,my_encoder_type);
     for (i=0;i<num_qubits;i++){
       qubit = va_arg(ap,int);
       (*new_encoder).qubits[i] = qubit;
@@ -754,7 +754,7 @@ void create_encoded_qubit(encoded_qubit *new_encoder,encoder_type my_encoder_typ
     (*new_encoder).num_qubits = num_qubits;
     (*new_encoder).my_encoder_type = PHASE;
     (*new_encoder).qubits = malloc(num_qubits*sizeof(PetscInt));
-    va_start(ap,num_qubits);
+    va_start(ap,my_encoder_type);
     for (i=0;i<num_qubits;i++){
       qubit = va_arg(ap,int);
       (*new_encoder).qubits[i] = qubit;
@@ -778,7 +778,7 @@ void create_encoded_qubit(encoded_qubit *new_encoder,encoder_type my_encoder_typ
     (*new_encoder).num_qubits = num_qubits;
     (*new_encoder).my_encoder_type = FIVE;
     (*new_encoder).qubits = malloc(num_qubits*sizeof(PetscInt));
-    va_start(ap,num_qubits);
+    va_start(ap,my_encoder_type);
     for (i=0;i<num_qubits;i++){
       qubit = va_arg(ap,int);
       (*new_encoder).qubits[i] = qubit;
@@ -863,11 +863,7 @@ void add_encoded_gate_to_circuit(circuit *circ,PetscReal time,gate_type my_gate_
 
   PetscMalloc1(num_qubits,&encoders);
 
-  if (my_gate_type==RX||my_gate_type==RY||my_gate_type==RZ) {
-    va_start(ap,num_qubits+1);
-  } else {
-    va_start(ap,num_qubits);
-  }
+  va_start(ap,my_gate_type);
 
   //First, get the encoders
   for (i=0;i<num_qubits;i++){

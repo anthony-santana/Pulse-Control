@@ -13,6 +13,8 @@ usFunctionGenerateBundleInit(TARGET ${LIBRARY_NAME} OUT SRC)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
 add_dependencies(${LIBRARY_NAME} base)
+# Enable more warnings for our C++ code 
+target_compile_options(${LIBRARY_NAME} PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
 
 set(_bundle_name xacc_quac_accelerator)
 set_target_properties(${LIBRARY_NAME} PROPERTIES

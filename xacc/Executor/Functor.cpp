@@ -13,6 +13,7 @@ extern "C" {
 //#define EXPORT_TS_DATA_AS_CSV
 
 namespace {
+#ifdef EXPORT_TS_DATA_AS_CSV
     void writeTimesteppingDataToCsv(const std::string& in_fileName, const TSData* const in_tsData, int in_nbSteps, int in_nbQubits)
     {
         if (in_nbSteps < 1)
@@ -101,6 +102,7 @@ namespace {
         outputFile.close();
         std::cout << "Time-stepping data is written to file '" << fileName << "'\n";
     } 
+#endif
 }
 
 InitializeFunctor::InitializeFunctor(int in_nbQubit, 

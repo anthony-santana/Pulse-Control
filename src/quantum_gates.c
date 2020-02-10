@@ -653,13 +653,7 @@ void add_gate_to_circuit(circuit *circ,PetscReal time,gate_type my_gate_type,...
   (*circ).gate_list[(*circ).num_gates].my_gate_type = my_gate_type;
   (*circ).gate_list[(*circ).num_gates]._get_val_j_from_global_i = _get_val_j_functions_gates[my_gate_type+_min_gate_enum];
 
-  if (my_gate_type==RX||my_gate_type==RY||my_gate_type==RZ) {
-    va_start(ap,num_qubits+1);
-  } else if (my_gate_type==U3){
-    va_start(ap,num_qubits+3);
-  } else {
-    va_start(ap,num_qubits);
-  }
+  va_start(ap,my_gate_type);
 
   // Loop through and store qubits
   for (i=0;i<num_qubits;i++){
