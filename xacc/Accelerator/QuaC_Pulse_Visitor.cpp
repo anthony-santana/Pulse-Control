@@ -9,6 +9,38 @@
 #include "Functor.hpp"
 
 namespace {
+   enum class ExecutorType { SingleProcess, CommSpawn };
+   constexpr int NUMBER_OF_MPI_PROCESSES = 4;
+
+   // Static executor factory
+   FunctorExecutorBase* getGlobalExecutor(ExecutorType in_type)
+   {
+      static std::unique_ptr<FunctorExecutorBase> g_executor;
+      static ExecutorType g_executorType;
+
+      if (!g_executor)
+      {
+         // First time getting the executor, create one
+         switch (in_type)
+         {
+            case ExecutorType::SingleProcess:
+               g_executor = std::make_unique<SingleProcessFunctorExecutor>();
+               break;
+            case ExecutorType::CommSpawn:
+               // For now, use a fixed number of processes for testing purposes
+               g_executor = std::make_unique<CommSpawnFunctorExecutor>(NUMBER_OF_MPI_PROCESSES);
+               break;
+         }
+
+         g_executorType = in_type;
+      }
+      
+      // The next time calling this, must ask for the same type.
+      // Don't switch executor type.
+      assert(in_type == g_executorType);
+      return g_executor.get();
+   }
+  
    enum class ChannelType { Invalid, D, U };
    std::pair<ChannelType, int> PulseChannelFromString(const std::string& in_channelName)
    {
@@ -168,6 +200,14 @@ namespace QuaC {
    {
       // Debug
       std::cout << "Initialize Pulse simulator \n";
+      
+      // NOTE: ExecutorType::CommSpawn is *NOT* fully functional
+      // const ExecutorType executorType = ExecutorType::CommSpawn;
+
+      // Currently, we only support SingleProcess executor.
+      const ExecutorType executorType =  ExecutorType::SingleProcess;
+      m_executor = getGlobalExecutor(executorType);      
+      
       auto provider = xacc::getIRProvider("quantum");
       // Should create a hash name here:
       m_pulseComposite = provider->createComposite("PulseComposite");
@@ -200,7 +240,7 @@ namespace QuaC {
          }
 
          // Step 1: Initialize the QuaC solver
-         m_executor.PostFunctorAsync(std::make_unique<InitializeFunctor>(
+         m_executor->PostFunctorAsync(std::make_unique<InitializeFunctor>(
                         buffer->size(), 
                         qubitDims, 
                         qbitDecays, 
@@ -211,7 +251,7 @@ namespace QuaC {
          // Step 2: set up the Hamiltonian
          for (const auto& term : m_systemModel->getHamiltonian().getTerms())
          {
-            term->apply(this, &m_executor);
+            term->apply(this, m_executor);
          }
       }
 
@@ -376,7 +416,7 @@ namespace QuaC {
 
                if (success) 
                {                
-                  m_executor.PostFunctorAsync(std::make_unique<AddGateU3>(
+                  m_executor->PostFunctorAsync(std::make_unique<AddGateU3>(
                      pulse->bits()[0], 
                      theta, 
                      phi, 
@@ -455,7 +495,7 @@ namespace QuaC {
       const bool adaptiveTimeStep = !hasLOfreqs;
       // Step 3: Run the simulation
       SerializationType resultData;
-      m_executor.CallFunctorSync(std::make_unique<StartTimestepping>(
+      m_executor->CallFunctorSync(std::make_unique<StartTimestepping>(
          *m_pulseChannelController, 
          dt, 
          simStopTime, 
@@ -493,7 +533,7 @@ namespace QuaC {
                if (qIdx1 != qIdx2 && qIdx1 < m_buffer->size() && qIdx2 < m_buffer->size())
                {
                   SerializationType resultData;
-                  m_executor.CallFunctorSync(
+                  m_executor->CallFunctorSync(
                      std::make_unique<CalculateBipartiteConcurrence>(qIdx1, qIdx2), 
                      resultData);
                   
@@ -885,6 +925,6 @@ namespace QuaC {
    void PulseVisitor::finalize() 
    {     
       std::cout << "Pulse simulator: Finalized. \n";
-      m_executor.PostFunctorAsync(std::make_unique<FinalizeFunctor>());
+      m_executor->PostFunctorAsync(std::make_unique<FinalizeFunctor>());
    }
 }

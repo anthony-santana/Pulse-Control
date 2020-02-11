@@ -5,12 +5,15 @@
 struct FunctorBase
 {
     virtual void execute(SerializationType* out_result = nullptr) = 0;
+    virtual std::string name() const = 0;
     virtual ~FunctorBase() {}
 };
 
 struct InitializeFunctor: public FunctorBase
 {
     virtual void execute(SerializationType* out_result = nullptr) override;
+    virtual std::string name() const override { return "InitializeFunctor"; }
+
     InitializeFunctor() {}
     InitializeFunctor(int in_nbQubit, 
                         const std::vector<int>& in_qbitDims, 
@@ -34,6 +37,8 @@ DECLARE_CORE_TYPE(FunctorBase, InitializeFunctor)
 struct AddHamiltonianTerm: public FunctorBase
 {
     virtual void execute(SerializationType* out_result = nullptr) override;
+    virtual std::string name() const override { return "AddHamiltonianTerm"; }
+
     AddHamiltonianTerm() {}
     AddHamiltonianTerm(const std::complex<double>& in_coeff, const std::vector<std::pair<std::string, int>>& in_ops, int in_channelId = -1);
     
@@ -52,6 +57,8 @@ DECLARE_CORE_TYPE(FunctorBase, AddHamiltonianTerm)
 struct AddGateU3: public FunctorBase
 {
     virtual void execute(SerializationType* out_result = nullptr) override;
+    virtual std::string name() const override { return "AddGateU3"; }
+    
     AddGateU3() {}
     AddGateU3(int in_qubitIdx, double in_theta, double in_phi, double in_lambda, double in_startTime);
     
@@ -72,6 +79,8 @@ DECLARE_CORE_TYPE(FunctorBase, AddGateU3)
 struct StartTimestepping: public FunctorBase
 {
     virtual void execute(SerializationType* out_result = nullptr) override;
+    virtual std::string name() const override { return "StartTimestepping"; }
+
     StartTimestepping(const PulseChannelController& in_pulseDataProvider, double in_dt, double in_stopTime, int in_stepMax, bool in_adaptive = true);
     StartTimestepping() {}
     
@@ -94,6 +103,8 @@ struct CalculateBipartiteConcurrence: public FunctorBase
     size_t m_qubit2;
 
     virtual void execute(SerializationType* out_result = nullptr) override;
+    virtual std::string name() const override { return "CalculateBipartiteConcurrence"; }
+
     CalculateBipartiteConcurrence(){};
     CalculateBipartiteConcurrence(size_t in_q1, size_t in_q2);
 
@@ -111,6 +122,7 @@ struct GetDensityMatrixElement: public FunctorBase
     size_t m_row;
     size_t m_column;
 
+    virtual std::string name() const override { return "GetDensityMatrixElement"; }
     virtual void execute(SerializationType* out_result = nullptr) override;
     GetDensityMatrixElement(){};
     GetDensityMatrixElement(size_t in_row, size_t in_column);
@@ -125,6 +137,7 @@ DECLARE_CORE_TYPE(FunctorBase, GetDensityMatrixElement)
 
 struct FinalizeFunctor: public FunctorBase
 {
+    virtual std::string name() const override { return "FinalizeFunctor"; }
     virtual void execute(SerializationType* out_result = nullptr) override;
     FinalizeFunctor(){};
     template<class Archive>

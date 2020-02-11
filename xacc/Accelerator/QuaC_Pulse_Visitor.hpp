@@ -58,7 +58,7 @@ namespace QuaC {
         // Qubits that are measured.
         std::set<size_t> m_measureQubits;
         int m_shotCount;
-        // Currently, only support single process executor
-        SingleProcessFunctorExecutor m_executor;
+        // QuaC functor executor
+        FunctorExecutorBase* m_executor;
     };    
 }

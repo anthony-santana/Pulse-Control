@@ -1,18 +1,26 @@
 
 find_package(XACC REQUIRED)
 
+
+add_library(FunctorExecutor STATIC Executor/Functor.cpp Executor/Executor.cpp)
+target_compile_options(FunctorExecutor PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+target_include_directories(FunctorExecutor PUBLIC  ./Utils ./Executor ${QUAC_INCLUDE_DIRS} ${XACC_QUAC_BASE_INCLUDE_DIR} ./tpls/cereal/include)
+target_link_libraries(FunctorExecutor PUBLIC QuaC base)
+target_compile_options(FunctorExecutor PRIVATE -fPIC)
+target_compile_definitions(FunctorExecutor PRIVATE NODE_SERVICE_EXE_DIR=${CMAKE_CURRENT_BINARY_DIR})
+
 set (LIBRARY_NAME xacc_quac)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 file (GLOB HEADERS *.hpp)
-file (GLOB SRC *.cpp Accelerator/*.cpp Utils/*.cpp Executor/*.cpp)
+file (GLOB SRC *.cpp Accelerator/*.cpp Utils/*.cpp)
 
 usFunctionGetResourceSource(TARGET ${LIBRARY_NAME} OUT SRC)
 usFunctionGenerateBundleInit(TARGET ${LIBRARY_NAME} OUT SRC)
 
 add_library(${LIBRARY_NAME} SHARED ${SRC})
-add_dependencies(${LIBRARY_NAME} base)
+add_dependencies(${LIBRARY_NAME} base FunctorExecutor)
 # Enable more warnings for our C++ code 
 target_compile_options(${LIBRARY_NAME} PRIVATE -Wall -Wextra -Wpedantic -Wno-unused-parameter)
 
@@ -39,11 +47,10 @@ target_include_directories(${LIBRARY_NAME} PUBLIC   .
                                                     ./Utils
                                                     ./Executor
                                                     ${QUAC_INCLUDE_DIRS}
-                                                    ${XACC_QUAC_BASE_INCLUDE_DIR}
-                                                    ./tpls/cereal/include)
+                                                    ${XACC_QUAC_BASE_INCLUDE_DIR})
 
 
-target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate QuaC base)
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc xacc::quantum_gate FunctorExecutor)
 set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS "-shared")
 
 set_target_properties(${LIBRARY_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
@@ -53,4 +60,10 @@ set (CMAKE_INSTALL_PREFIX "${XACC_ROOT}" CACHE PATH "default install path" FORCE
 
 install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
 add_subdirectory(tests)
+
+# Build MPI PlatformNode
+set (MPI_EXECUTOR PlatformNode)
+add_executable(${MPI_EXECUTOR} Executor/MPI/PlatformNode.cpp)
+target_include_directories(${MPI_EXECUTOR} PRIVATE  ./Executor ./Executor/MPI ./Utils ${QUAC_INCLUDE_DIRS} ${XACC_QUAC_BASE_INCLUDE_DIR} ./tpls/cereal/include)
+target_link_libraries(${MPI_EXECUTOR} PRIVATE FunctorExecutor)
 
