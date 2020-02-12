@@ -79,15 +79,12 @@ double g_gateStartTime = 0.0;
 // Generate dummy channel drive functions (signature double(double)) which 
 // just refer to g_PulseDataProvider to get the data.
 // (each function declared here has an implied channel index)
-// Register 8 channels
 // Technically, we can register as many channels as we want here 
 // (need to automate the macro expansion util to handle arbitrary number).
 // These are just placeholder functions for calling into the Pulse controller.
+// Register 40 channels (~20 qubits, this should be the max that we can realistically handle) 
 typedef double channelFunctionType(double time);
-REGISTER_N_DRIVE_CHANNELS(g_PulseDataProvider, 8);
-// ***Temporary code for testing***
-// This should be combined with the above REGISTER_N_DRIVE_CHANNELS macro.
-channelFunctionType *g_channelFnArray[8] = { _DriveChannel0, _DriveChannel1, _DriveChannel2, _DriveChannel3, _DriveChannel4, _DriveChannel5, _DriveChannel6, _DriveChannel7 };
+REGISTER_N_DRIVE_CHANNELS(g_PulseDataProvider, 40);
 
 // Time-stepping monitor function
 PetscErrorCode g_tsDefaultMonitorFunc(TS, PetscInt, PetscReal, Vec, void*);
