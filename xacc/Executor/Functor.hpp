@@ -75,6 +75,25 @@ struct AddGateU3: public FunctorBase
 }; 
 DECLARE_CORE_TYPE(FunctorBase, AddGateU3)
 
+struct AddGateCNOT: public FunctorBase
+{
+    virtual void execute(SerializationType* out_result = nullptr) override;
+    virtual std::string name() const override { return "AddGateCNOT"; }
+    
+    AddGateCNOT() {}
+    AddGateCNOT(int in_ctrlIdx, int in_targetIdx, double in_startTime);
+    
+    template<class Archive>
+    void serialize(Archive& archive)
+    {
+        archive(m_ctrlIdx, m_targetIdx, m_startTime); 
+    }
+
+    int m_ctrlIdx;
+    int m_targetIdx;
+    double m_startTime;
+}; 
+DECLARE_CORE_TYPE(FunctorBase, AddGateCNOT)
 
 struct StartTimestepping: public FunctorBase
 {

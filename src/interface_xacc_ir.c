@@ -92,30 +92,9 @@ channelFunctionType *g_channelFnArray[8] = { _DriveChannel0, _DriveChannel1, _Dr
 // Time-stepping monitor function
 PetscErrorCode g_tsDefaultMonitorFunc(TS, PetscInt, PetscReal, Vec, void*);
 
-int XACC_QuaC_Initialize(int in_nbQubit)
-{
-    // TODO: support passing params (e.g. qubit decay)
-    QuaC_initialize(0, NULL);
-    nbQubits = in_nbQubit;
-    qubits  = malloc(in_nbQubit * sizeof(struct operator));    
-    
-    for (int i = 0; i < nbQubits; i++)
-    {
-        create_op(2, &qubits[i]);
-    }
-    
-    // Allocate resources
-    create_full_dm(&psi);
-    // Initital state
-    add_value_to_dm(psi, 0, 0, 1.0);
-
-    // Create circuit
-    create_circuit(&g_circuit, -1);
-    return 0;
-}
-
 int XACC_QuaC_AddDigitalInstructionU3(int in_qubitIdx, double in_theta, double in_phi, double in_lambda, double in_startTime)
 {
+    ASSERT_QUBIT_INDEX(in_qubitIdx);
     LOG_INFO("Add U3(%lf,%lf,%lf) q[%d] @ t = %lf \n", in_theta, in_phi, in_lambda, in_qubitIdx, in_startTime);
     circuit  circ;
     create_circuit(&circ, 1);
@@ -133,14 +112,26 @@ int XACC_QuaC_AddDigitalInstructionU3(int in_qubitIdx, double in_theta, double i
     return 0;
 }
 
-const char* XACC_QuaC_ExecuteCircuit(int in_argCount, char** in_args)
+int XACC_QuaC_AddCnot(int in_ctrlIdx, int in_targetIdx, double in_startTime)
 {
-    start_circuit_at_time(&g_circuit, 0.0);
-    time_step(psi, 0.0, g_timeMax, g_dt, g_stepsMax);
-    // Debug
-    int psi_dims = pow(2, nbQubits);
-    print_psi(psi, psi_dims);
-    return "";
+    ASSERT_QUBIT_INDEX(in_ctrlIdx);
+    ASSERT_QUBIT_INDEX(in_targetIdx);
+    
+    LOG_INFO("Add CNOT(q[%d], q[%d]) @ t = %lf \n", in_ctrlIdx, in_targetIdx, in_startTime);
+    circuit  circ;
+    create_circuit(&circ, 1);
+    add_gate_to_circuit(&circ, 0.0, CNOT, in_ctrlIdx, in_targetIdx); 
+    if (in_startTime > g_gateStartTime)
+    {
+        g_gateStartTime = in_startTime;
+    }
+    else
+    {
+        g_gateStartTime += g_dt;
+    }
+    
+    start_circuit_at_time(&circ, g_gateStartTime);
+    return 0;
 }
 
 void XACC_QuaC_Finalize()
@@ -175,7 +166,7 @@ void XACC_QuaC_Finalize()
     QuaC_clear();
 }
 
-int XACC_QuaC_InitializePulseSim(int in_nbQubit, const int* in_qbitDims)
+int XACC_QuaC_Initialize(int in_nbQubit, const int* in_qbitDims)
 {
     g_simulationMode = PULSE;
     if (!g_wasInitialized)

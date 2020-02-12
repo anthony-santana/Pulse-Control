@@ -439,6 +439,17 @@ namespace QuaC {
                   xacc::error("Illegal instructions detected. Abort!\n");
                }
             }
+            else if (pulseName == "digital::cnot")
+            {
+               // A digital CNOT gate, e.g. the pulse library don't have cmd-def for CNOT,
+               // hence, we must do gate-based simulation.
+               assert(pulse->bits().size() == 2);
+               m_executor->PostFunctorAsync(std::make_unique<AddGateCNOT>(
+                     pulse->bits()[0], 
+                     pulse->bits()[1], 
+                     pulse->start()*m_pulseChannelController->GetBackendConfigs().dt
+                  ));
+            } 
             else
             {
                // This is a pulse instruction (pulse name + sample)
@@ -618,7 +629,18 @@ namespace QuaC {
       }
       else
       {
-        xacc::error("CNOT pulse cmd-def is not provided!");
+         // No CNOT pulse is defined, use a *digital* pulse replacement
+         // i.e. use gate simulation in QuaC
+         const auto digitalCmdDefName = "digital::cnot"; 
+         if (!xacc::hasContributedService<xacc::Instruction>(digitalCmdDefName))
+         {
+            // First time using this
+            xacc::contributeService(digitalCmdDefName, std::make_shared<xacc::quantum::Pulse>(digitalCmdDefName));
+         }
+
+         auto cnotDigitalPulse = xacc::getContributedService<xacc::Instruction>(digitalCmdDefName);
+         cnotDigitalPulse->setBits(cnot.bits());
+         m_pulseComposite->addInstruction(cnotDigitalPulse);        
       }
    }
    

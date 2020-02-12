@@ -149,6 +149,44 @@ TEST(DigitalGateTester, testMultipleGates)
     EXPECT_NEAR(prob1, 1.0, 0.01);
 }
 
+TEST(DigitalGateTester, testMultipleQubitGates)
+{
+    auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
+    const bool loadOK = systemModel->loadHamiltonianJson(createTransmonHamiltonianJson());
+    assert(loadOK);    
+        
+    BackendChannelConfigs channelConfigs;
+    channelConfigs.dt = 1.0;    
+    channelConfigs.loFregs_dChannels.emplace_back(0.0);
+    systemModel->setChannelConfigs(channelConfigs);
+    
+    const int NB_SHOTS = 10000;
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel), std::make_pair("shots", NB_SHOTS)  });    
+
+    auto xasmCompiler = xacc::getCompiler("xasm");
+    
+    // This test both the gate decomposition and multi-qubit simulation (gate-based)
+    // For example, we have procedures in place to convert a SWAP gate to 3 CNOT gates.
+    auto ir = xasmCompiler->compile(R"(__qpu__ void test4(qbit q) {
+      X(q[0]);
+      Swap(q[0], q[1]);
+      Swap(q[1], q[2]);
+      Measure(q[0]);
+      Measure(q[1]);
+      Measure(q[2]);
+      Measure(q[3]);
+      Measure(q[4]);
+    })", quaC);
+    auto program = ir->getComposite("test4");
+    // We will use 5 qubits and swap the '1' into the middle
+    auto qubitReg = xacc::qalloc(5);    
+    quaC->execute(qubitReg, program);
+    // Qubit in the middle is 1.
+    const double probability = qubitReg->computeMeasurementProbability("00100");
+    // Probability is 1
+    EXPECT_NEAR(probability, 1.0, 0.001);
+}
+
 TEST(DigitalGateTester, testMixPulseDigital)
 {
     // Similar to the above test: H-Z-H is equiv to an X gate,
@@ -272,7 +310,7 @@ TEST(DigitalGateTester, testQuantumProcessTomography)
     // First: use Qpp backend to get the *reference* data
     auto qppReg = xacc::qalloc(1);    
     // Use QPP accelerator   
-    auto acc = xacc::getAccelerator("qpp", {std::make_pair("shots", 1024)});
+    auto acc = xacc::getAccelerator("qpp", {std::make_pair("shots", 2048)});
     auto compiler = xacc::getCompiler("xasm");
     auto ir = compiler->compile(R"(__qpu__ void f(qbit q) {
         X(q[0]);

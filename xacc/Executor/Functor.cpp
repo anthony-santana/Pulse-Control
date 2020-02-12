@@ -133,7 +133,7 @@ void InitializeFunctor::execute(SerializationType* out_result)
         XACC_QuaC_SetLogVerbosity(DEBUG);
     }
 
-    XACC_QuaC_InitializePulseSim(m_nbQubit, m_qbitDims.data());
+    XACC_QuaC_Initialize(m_nbQubit, m_qbitDims.data());
     for (int i = 0; i < m_nbQubit; ++i)
     {
         XACC_QuaC_AddQubitDecay(i, m_qbitDecays[i]);
@@ -194,6 +194,17 @@ AddGateU3::AddGateU3(int in_qubitIdx, double in_theta, double in_phi, double in_
     m_theta(in_theta),
     m_phi(in_phi),
     m_lambda(in_lambda),
+    m_startTime(in_startTime)
+{}
+
+void AddGateCNOT::execute(SerializationType* out_result)
+{
+    XACC_QuaC_AddCnot(m_ctrlIdx, m_targetIdx, m_startTime);
+}
+
+AddGateCNOT::AddGateCNOT(int in_ctrlIdx, int in_targetIdx, double in_startTime):
+    m_ctrlIdx(in_ctrlIdx),
+    m_targetIdx(in_targetIdx),
     m_startTime(in_startTime)
 {}
 
