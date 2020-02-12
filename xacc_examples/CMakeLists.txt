@@ -13,3 +13,7 @@ target_link_libraries(pulse_optimization PRIVATE xacc_quac xacc::quantum_gate)
 
 add_executable(quantum_process_tomography quantum_process_tomography.cpp)
 target_link_libraries(quantum_process_tomography PRIVATE xacc_quac xacc::quantum_gate)
+
+add_executable(pulse_command_def pulse_command_def.cpp)
+target_link_libraries(pulse_command_def PRIVATE xacc_quac xacc::quantum_gate)
+target_compile_definitions(pulse_command_def PRIVATE GATEIR_TEST_FILE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
