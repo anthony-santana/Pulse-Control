@@ -76,7 +76,7 @@ CommSpawnFunctorExecutor::CommSpawnFunctorExecutor(int in_nbProcs)
 void CommSpawnFunctorExecutor::PostFunctorAsync(std::unique_ptr<FunctorBase>&& in_functor) 
 {
     auto strBuffer = serializeObject(in_functor);
-    std::cout << " Serialize functor '" << in_functor->name() << "' to " << strBuffer.size() << " bytes \n";
+    // std::cout << " Serialize functor '" << in_functor->name() << "' to " << strBuffer.size() << " bytes \n";
     auto bufferSize = strBuffer.size() + 1;
 	MPI_Bcast(&bufferSize, 1, MPI_INT, MPI_ROOT, m_intercomm);
 	MPI_Bcast(&strBuffer[0], bufferSize, MPI_CHAR, MPI_ROOT, m_intercomm);
@@ -85,20 +85,33 @@ void CommSpawnFunctorExecutor::PostFunctorAsync(std::unique_ptr<FunctorBase>&& i
 
 void CommSpawnFunctorExecutor::CallFunctorSync(std::unique_ptr<FunctorBase>&& in_functor, SerializationType& outResult) 
 {
-    // TODO: we need to get the result from this one
-    auto strBuffer = serializeObject(in_functor);
-    std::cout << " Serialize functor '" << in_functor->name() << "' to " << strBuffer.size() << " bytes \n";
-    auto bufferSize = strBuffer.size() + 1;
-	MPI_Bcast(&bufferSize, 1, MPI_INT, MPI_ROOT, m_intercomm);
-	MPI_Bcast(&strBuffer[0], bufferSize, MPI_CHAR, MPI_ROOT, m_intercomm);
-	MPI_Barrier(m_intercomm);
+    {
+        // Send out the functor (e.g. do timestepping)
+        auto strBuffer = serializeObject(in_functor);
+        // std::cout << " Serialize functor '" << in_functor->name() << "' to " << strBuffer.size() << " bytes \n";
+        auto bufferSize = strBuffer.size() + 1;
+        MPI_Bcast(&bufferSize, 1, MPI_INT, MPI_ROOT, m_intercomm);
+        MPI_Bcast(&strBuffer[0], bufferSize, MPI_CHAR, MPI_ROOT, m_intercomm);
+        MPI_Barrier(m_intercomm);
+    }
+   
+    {
+        // Receive the result
+        int messageSize;
+        MPI_Recv(&messageSize, 1, MPI_INT, 0, 0, m_intercomm, MPI_STATUS_IGNORE);		
+        char* buffer = new char[messageSize];
+        MPI_Recv(buffer, messageSize, MPI_CHAR, 0, 0, m_intercomm, MPI_STATUS_IGNORE);
+        // printf("Host Executor received a buffer of length %d.\n", messageSize);
+        outResult.str(std::string(buffer, buffer + messageSize));
+        delete [] buffer;
+    }
 }
 
-CommSpawnFunctorExecutor::~CommSpawnFunctorExecutor()
+void CommSpawnFunctorExecutor::ShutDown()
 {
     // Send the shut down code to the child processes
     int token = SHUT_DOWN_CODE;
 	MPI_Bcast(&token, 1, MPI_INT, MPI_ROOT, m_intercomm);
-	puts("CommSpawnFunctorExecutor Exit!");
+	// puts("CommSpawnFunctorExecutor Exit!");
 	MPI_Finalize();
 }

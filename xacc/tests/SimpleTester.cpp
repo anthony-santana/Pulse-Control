@@ -3,6 +3,7 @@
 #include "Pulse.hpp"
 #include "PulseSystemModel.hpp"
 #include "PulseGen.hpp"
+#include <chrono>
 
 // NOTE: these tests are designed to validate time-independent evolution,
 // we will have tests for cases where we have time-dependent terms.
@@ -286,7 +287,12 @@ TEST(SimpleTester, checkSpinChain)
     compositeInst->addInstruction(pulseInst);
 
     // Run the Pulse simulation with the Hamiltonian provided
+    const std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     quaC->execute(qubitReg, compositeInst);
+    const std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+    std::cout << "[SINGLE PROCESS] Heisenberg spin chain elapsed time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+
     const auto finalPopulations = qubitReg->getInformation("<O>").as<std::vector<double>>();
     EXPECT_EQ(finalPopulations.size(), 10);
     // All populations should be pretty small (corresponding to |0> state, +1 expectation-Z)

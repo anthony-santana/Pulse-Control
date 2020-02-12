@@ -4,6 +4,7 @@
 #include "QuaC_Accelerator.hpp"
 #include <iostream>
 #include "Hamiltonian.hpp"
+#include "QuaC_TearDown.hpp"
 
 using namespace cppmicroservices;
 
@@ -16,6 +17,7 @@ public:
     // Register the QuaC accelerator with the service registry
     context.RegisterService<xacc::Accelerator>(acc);
     context.RegisterService<QuaC::HamiltonianParsingUtil>(std::make_shared<QuaC::HamiltonianParsingUtil>());
+    context.RegisterService<xacc::TearDown>(std::make_shared<QuacTearDown>());
   }
 
   void Stop(BundleContext context) {}

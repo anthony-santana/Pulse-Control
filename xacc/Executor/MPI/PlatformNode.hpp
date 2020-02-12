@@ -15,7 +15,7 @@ public:
 
     void start();
 private:
-    void processFunctor(std::unique_ptr<FunctorBase>& in_functor);
+    void processFunctor(std::unique_ptr<FunctorBase>& in_functor, SerializationType& out_result);
 
 private:
     MPI_Comm m_host;

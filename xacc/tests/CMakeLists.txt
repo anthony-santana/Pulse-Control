@@ -10,3 +10,17 @@ target_link_libraries(CircuitTester xacc xacc_quac xacc::quantum_gate)
 
 add_xacc_test(DigitalGate)
 target_link_libraries(DigitalGateTester xacc xacc_quac xacc::quantum_gate)
+
+if (ENABLE_MPI_TESTS)
+    # Macro to add an MPI-enabled gtest: just change the driver command to starting with 1 process.
+    macro(add_mpi_test _TEST_NAME)
+       add_executable(${_TEST_NAME}Tester ${_TEST_NAME}Tester.cpp)
+       target_include_directories(${_TEST_NAME}Tester PRIVATE ${GTEST_INCLUDE_DIRS})
+       add_test(NAME xacc_${_TEST_NAME}Tester COMMAND sh -c "${MPIEXEC_PROGRAM} -np 1 ./${_TEST_NAME}Tester")
+       target_link_libraries(${_TEST_NAME}Tester gtest)
+    endmacro()
+   
+   # Add the a simple MPI test
+   add_mpi_test(QuaCMPI)
+   target_link_libraries(QuaCMPITester xacc xacc_quac xacc::quantum_gate)
+endif()

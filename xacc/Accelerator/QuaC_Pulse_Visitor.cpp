@@ -8,39 +8,43 @@
 #include "PulseSystemModel.hpp"
 #include "Functor.hpp"
 
-namespace {
-   enum class ExecutorType { SingleProcess, CommSpawn };
-   constexpr int NUMBER_OF_MPI_PROCESSES = 4;
+enum class ExecutorType { SingleProcess, CommSpawn };
+constexpr int NUMBER_OF_MPI_PROCESSES = 4;
+// Static executor factory
+static ExecutorType g_executorType;
+FunctorExecutorBase* getGlobalExecutor(ExecutorType in_type)
+{
+   static std::unique_ptr<FunctorExecutorBase> g_executor;
 
-   // Static executor factory
-   FunctorExecutorBase* getGlobalExecutor(ExecutorType in_type)
+   if (!g_executor)
    {
-      static std::unique_ptr<FunctorExecutorBase> g_executor;
-      static ExecutorType g_executorType;
-
-      if (!g_executor)
+      // First time getting the executor, create one
+      switch (in_type)
       {
-         // First time getting the executor, create one
-         switch (in_type)
-         {
-            case ExecutorType::SingleProcess:
-               g_executor = std::make_unique<SingleProcessFunctorExecutor>();
-               break;
-            case ExecutorType::CommSpawn:
-               // For now, use a fixed number of processes for testing purposes
-               g_executor = std::make_unique<CommSpawnFunctorExecutor>(NUMBER_OF_MPI_PROCESSES);
-               break;
-         }
-
-         g_executorType = in_type;
+         case ExecutorType::SingleProcess:
+            g_executor = std::make_unique<SingleProcessFunctorExecutor>();
+            break;
+         case ExecutorType::CommSpawn:
+            // For now, use a fixed number of processes for testing purposes
+            g_executor = std::make_unique<CommSpawnFunctorExecutor>(NUMBER_OF_MPI_PROCESSES);
+            break;
       }
-      
-      // The next time calling this, must ask for the same type.
-      // Don't switch executor type.
-      assert(in_type == g_executorType);
-      return g_executor.get();
+
+      g_executorType = in_type;
    }
-  
+   
+   // The next time calling this, must ask for the same type.
+   // Don't switch executor type.
+   assert(in_type == g_executorType);
+   return g_executor.get();
+}
+
+void finalizeQuacExecutor() 
+{
+   getGlobalExecutor(g_executorType)->ShutDown();
+}
+
+namespace { 
    enum class ChannelType { Invalid, D, U };
    std::pair<ChannelType, int> PulseChannelFromString(const std::string& in_channelName)
    {
@@ -200,12 +204,18 @@ namespace QuaC {
    {
       // Debug
       std::cout << "Initialize Pulse simulator \n";
-      
-      // NOTE: ExecutorType::CommSpawn is *NOT* fully functional
-      // const ExecutorType executorType = ExecutorType::CommSpawn;
-
-      // Currently, we only support SingleProcess executor.
-      const ExecutorType executorType =  ExecutorType::SingleProcess;
+      // Default execution mode is Single Process
+      ExecutorType executorType =  ExecutorType::SingleProcess;
+      if (in_params.stringExists("execution-mode")) 
+      {
+         const std::string requestedMode = in_params.getString("execution-mode");
+         if (requestedMode  == "MPI" || requestedMode  == "mpi") 
+         {
+            xacc::warning("Enable MPI!\n");
+            executorType = ExecutorType::CommSpawn;
+         }
+      }    
+     
       m_executor = getGlobalExecutor(executorType);      
       
       auto provider = xacc::getIRProvider("quantum");
