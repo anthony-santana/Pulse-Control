@@ -77,9 +77,19 @@ bool PulseSystemModel::fromQobjectJson(const std::string& in_jsonString)
     auto uRanges = backend["specificConfiguration"]["u_channel_lo"];
     for (auto u_iter = uRanges.begin(); u_iter != uRanges.end(); ++u_iter) 
     {
-        const double DEFAULT_FREQ = 5.0;
-        // TODO: calculate U channel freqs.
-        m_channelConfigs.loFregs_uChannels.emplace_back(DEFAULT_FREQ);
+        // Adding none freq. but assign the formula appropriately.
+        const double DEFAULT_NONE_FREQ = 0.0;
+        m_channelConfigs.loFregs_uChannels.emplace_back(DEFAULT_NONE_FREQ);
+        uChannelFormula uFreqFormula;
+        for (auto it = (*u_iter).begin(); it != (*u_iter).end(); ++it) 
+        {
+            const int qIdx = (*it)["q"].get<int>();
+            const std::vector<double> scale = (*it)["scale"].get<std::vector<double>>();
+            assert(scale.size() == 2);
+            uFreqFormula.emplace_back(std::make_pair(std::complex<double>(scale[0], scale[1]), qIdx));            
+        }
+        
+        m_channelConfigs.loFregs_uChannelFormulas.emplace_back(std::move(uFreqFormula));
     }
 
     // Get the pulse library

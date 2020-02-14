@@ -66,6 +66,31 @@ double BackendChannelConfigs::getPulseDuration(const std::string& in_pulseName) 
     return iter->second.size() * dt;
 }
 
+std::vector<double> BackendChannelConfigs::computeUchannelFreqs() const
+{
+    if (loFregs_uChannelFormulas.empty())
+    {
+        // No formula, returns the absolute u channel freq array
+        return loFregs_uChannels;
+    }
+
+    std::vector<double> calcFreqs;
+    calcFreqs.reserve(loFregs_uChannelFormulas.size());
+
+    for (const auto& formula: loFregs_uChannelFormulas)
+    {
+        double freq = 0.0;
+        for (const auto& term: formula)
+        {
+            freq = freq + term.first.real() * loFregs_dChannels[term.second];
+        }
+
+        calcFreqs.emplace_back(freq);
+    }
+
+    return calcFreqs;
+}
+
 PulseChannelController::PulseChannelController(const BackendChannelConfigs& in_backendConfig):
     m_isInitialized(false),
     m_context({}),

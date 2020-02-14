@@ -343,6 +343,68 @@ TEST(SimpleTester, testFrameChangeNet)
     EXPECT_LT(error, 0.1);
 }
 
+// Test parsing of U channel formula from IBM Json
+TEST(SimpleTester, testUchannelCalc) 
+{
+    // Load cmd-def from IBM Json
+    const std::string jsonConfigFile = std::string(GATEIR_TEST_FILE_DIR) + "/test_backends.json";
+    std::ifstream backendFile(jsonConfigFile);
+    std::string jjson((std::istreambuf_iterator<char>(backendFile)), std::istreambuf_iterator<char>());
+
+    auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
+    const bool loadOK = systemModel->fromQobjectJson(jjson);
+    // Set D channel LO freqs
+    // (we need to add the ability to calculate dressed freqs from the Hamiltonian to automate this)
+    std::vector<double> loFreqs {
+        30.91270129264568,
+        30.36010168900955,
+        29.646980870637176,
+        30.78691781866975,
+        29.98897202188929,
+        32.112549322293646,
+        31.353451235217282,
+        30.19780363257416,
+        31.137757994787886,
+        28.898105083032608,
+        30.33512215146248,
+        31.03049479602302,
+        31.041771660759178,
+        28.36701429077905,
+        29.298278199939336,
+        31.14757431485366,
+        31.387741224914162,
+        30.232349262897678,
+        31.502130591468386,
+        31.769632280927663
+    };
+
+    systemModel->getChannelConfigs().loFregs_dChannels = loFreqs;
+
+    const auto uFreqsCalc = systemModel->getChannelConfigs().computeUchannelFreqs();
+    // Qubit-qubit coupling map of this device
+    const std::vector<std::pair<int, int>> couplingMap = 
+    {   {0, 1}, {0, 5}, {1, 0}, {1, 2}, {2, 1}, {2, 3}, {3, 2}, 
+        {3, 4}, {4, 3}, {4, 9}, {5, 0}, {5, 6}, {5, 10}, {6, 5}, 
+        {6, 7}, {7, 6}, {7, 8}, {7, 12}, {8, 7}, {8, 9}, {9, 4}, 
+        {9, 8}, {9, 14}, {10, 5}, {10, 11}, {10, 15}, {11, 10}, 
+        {11, 12}, {12, 7}, {12, 11}, {12, 13}, {13, 12}, {13, 14}, 
+        {14, 9}, {14, 13}, {14, 19}, {15, 10}, {15, 16}, {16, 15}, 
+        {16, 17}, {17, 16}, {17, 18}, {18, 17}, {18, 19}, {19, 14}, {19, 18}};
+
+    // # U channels == # qubit couplings:
+    EXPECT_EQ(uFreqsCalc.size(), couplingMap.size());
+
+    for (int i = 0; i < uFreqsCalc.size(); ++i)
+    {
+        // The U channel frequency (specified as formula) is the cross-resonance
+        // frequency between each qubit pair.
+        // e.g. for the first pair {0, 1} we drive the U channel of q0 at the freq of q1,
+        // Check that we have parsed and calculated the freqs correctly for all U channels.
+        const auto targetQubit = couplingMap[i].second;
+        const auto crossResFreq = loFreqs[targetQubit];
+        EXPECT_EQ(uFreqsCalc[i], crossResFreq);
+    }
+}
 
 int main(int argc, char **argv) 
 {

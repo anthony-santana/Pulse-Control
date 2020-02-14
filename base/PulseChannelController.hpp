@@ -12,6 +12,10 @@
 // The time between data points is the device time unit dt.
 // Ref 5.1.5
 using PulseLib = std::unordered_map<std::string, std::vector<std::complex<double>>>;
+// IBM Open Pulse Spec (5.1.1)
+// The U channel frequencies can be specied as a summation (with coefficients) of D channel LO freqs.
+// Hence, it is represented as a vector of complex coefficients and the D channel indicies. 
+using uChannelFormula = std::vector<std::pair<std::complex<double>, int>>;
 
 std::vector<std::complex<double>> PulseSamplesToComplexVec(const std::vector<std::vector<double>>& in_samples);
 
@@ -25,6 +29,11 @@ struct BackendChannelConfigs
     // U channels LO freqs 
     // Unit: GHz    
     std::vector<double> loFregs_uChannels;
+    
+    // We only have these formulas if parsing from the full backend Json,
+    // otherwise, normally, we can explicitly specify the frequencies.
+    std::vector<uChannelFormula> loFregs_uChannelFormulas;
+
     // Control signal dt (i.e. duration between pulse data points)
     // Note: this is different from the stepping dt of the solver (which should be shorter)
     // (we are simulating discrete pulse samples as provided in the QObject)  
@@ -38,11 +47,17 @@ struct BackendChannelConfigs
     void addOrReplacePulse(const std::string& in_pulseName, const std::vector<std::complex<double>>& in_pulseData);
     size_t getPulseSampleSize(const std::string& in_pulseName) const;
     double getPulseDuration(const std::string& in_pulseName) const;
+    
+    // Down-stream code should use this method to retrieve the U channel freqs (for mixing)
+    // rather than directly access loFregs_uChannels.
+    // This is because U channel frequencies may be specified in terms of D channel freqs 
+    // rather than abosolute freqs. 
+    std::vector<double> computeUchannelFreqs() const;
 
     template<class Archive>
     void serialize(Archive& archive)
     {
-        archive(loFregs_dChannels, loFregs_uChannels, dt, pulseLib); 
+        archive(loFregs_dChannels, loFregs_uChannels, dt, pulseLib, loFregs_uChannelFormulas); 
     }
 };
 

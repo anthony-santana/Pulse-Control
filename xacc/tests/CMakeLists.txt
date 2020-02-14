@@ -4,6 +4,7 @@ target_link_libraries(SimpleTester xacc xacc_quac xacc::quantum_gate)
 
 add_xacc_test(OpenPulse)
 target_link_libraries(OpenPulseTester xacc xacc_quac xacc::quantum_gate)
+target_compile_definitions(OpenPulseTester PRIVATE GATEIR_TEST_FILE_DIR="${CMAKE_SOURCE_DIR}/xacc_examples/resources")
 
 add_xacc_test(Circuit)
 target_link_libraries(CircuitTester xacc xacc_quac xacc::quantum_gate)
