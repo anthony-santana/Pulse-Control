@@ -49,7 +49,7 @@ namespace QuaC {
 
     private:
         void schedulePulses(const std::shared_ptr<CompositeInstruction>& in_pulseInstruction);
-        std::string generateResultBitString(const std::vector<double>& in_occupationProbs) const;
+        std::string generateResultBitString(const std::vector<std::complex<double>>& in_dmDiagonalElems) const;
     private:
         std::unique_ptr<PulseChannelController> m_pulseChannelController;
         std::shared_ptr<CompositeInstruction> m_pulseComposite;

@@ -235,6 +235,10 @@ void StartTimestepping::execute(SerializationType* out_result)
                                 reinterpret_cast<PulseChannelProvider*>(&m_pulseDataProvider), 
                                 m_dt, m_stopTime, m_stepMax, &results, &nbSteps, &tsData);
 
+    // Always retrieve the diagonal elements of the density matrix after finishing the simulation
+    ComplexCoefficient* diagElems = nullptr;
+    const auto nbDiagonalElems = XACC_QuaC_GetDensityMatrixDiagElements(&diagElems);
+    
     // There is no point running time stepping w/o getting the result.
     assert(out_result != nullptr);
     
@@ -247,6 +251,13 @@ void StartTimestepping::execute(SerializationType* out_result)
     for (int i = 0; i < resultSize; ++i)
     {
         finalResult.finalPopulations.emplace_back(results[i]);
+    }
+
+    // Diagonal Elements:
+    finalResult.dmDiagElems.reserve(nbDiagonalElems);
+    for (int i = 0; i < nbDiagonalElems; ++i)
+    {
+        finalResult.dmDiagElems.emplace_back(diagElems[i].real, diagElems[i].imag);
     }
 
     finalResult.tsData.reserve(nbSteps);
@@ -278,6 +289,7 @@ void StartTimestepping::execute(SerializationType* out_result)
         finalResult.tsData.emplace_back(std::move(data));
     }
     free(results);
+    free(diagElems);
     SerializationOutputDataType outArchive(*out_result); 
     outArchive(finalResult); 
 }

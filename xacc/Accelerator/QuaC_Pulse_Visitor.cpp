@@ -575,29 +575,74 @@ namespace QuaC {
          m_buffer->addExtraInfo("Concurrence", requestedConcurrenceCalc);
       }
       
+      // Generate bit string from the diagonal elements of the density matrix
+      // (i.e. probabilities of all the basis states)
+      const auto& dmDiagElems = simResult.dmDiagElems;
       if (!m_measureQubits.empty())
       {
          for(int i = 0; i < m_shotCount; ++i)
          {
-            m_buffer->appendMeasurement(generateResultBitString(finalPopulations));
+            m_buffer->appendMeasurement(generateResultBitString(dmDiagElems));
          }
       }
    }
 
 
-   std::string PulseVisitor::generateResultBitString(const std::vector<double>& in_occupationProbs) const
+   std::string PulseVisitor::generateResultBitString(const std::vector<std::complex<double>>& in_dmDiagonalElems) const
    {
       static auto randomProbFunc = std::bind(std::uniform_real_distribution<double>(0, 1), std::mt19937(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+
+#ifndef NDEBUG     
+      const auto checkDensityMatrixTrace = [&](){
+         double trace = 0.0;
+         for (const auto& elem : in_dmDiagonalElems)
+         {
+            trace += elem.real();
+         }
+         assert(std::abs(trace - 1.0) < 0.01);
+      };
+      
+      // Check density matrix trace if running debug:
+      // This helps catch any potential problems in the solver.
+      checkDensityMatrixTrace();
+#endif
+      
+      // Pick a random probability
+      const auto probPick = randomProbFunc();
+      // We need to define a way to handle measurements for not-qubit (dimension > 2 here).
+      // i.e. if dimension = 3, how the last state will be reported?
+      // For now, we assert that measurements are only available to qubit systems.
+      // i.e. don't add Measure gates to qutrit system. 
+      for (int i = 0; i < m_buffer->size(); ++i)
+      {
+         if (m_systemModel->getHamiltonian().getQubitDimension(i) != 2)
+         {
+            // Return an empty bitstring 
+            return std::string();
+         }
+      }
+      const size_t N = 1 << m_buffer->size();
+      assert(in_dmDiagonalElems.size() == N);
+      // Random state selection
+      double cumulativeProb = 0.0;
+      size_t stateSelect = 0;
+      // select a state based on cumulative distribution (diagonal elements)
+      while (cumulativeProb < probPick && stateSelect < N)
+      {
+         cumulativeProb += in_dmDiagonalElems[stateSelect++].real();
+      }
+
+      // back one step
+      stateSelect--;
       std::string result;
       for (const auto& qubit : m_measureQubits)
       {
-         const auto probPick = randomProbFunc();
-         const auto qubitOcc = in_occupationProbs[qubit];
-         // Occupation value is the '1' probability
-         result.push_back(qubitOcc > probPick ? '1' : '0');
+         const auto qubitIdx = m_buffer->size() - qubit - 1;
+         const bool bit = ((stateSelect >> qubitIdx) & 1);
+         result.push_back(bit ? '1' : '0');
       }
 
-      return result;
+      return result;  
    }
 
    void PulseVisitor::visit(Hadamard& h)  

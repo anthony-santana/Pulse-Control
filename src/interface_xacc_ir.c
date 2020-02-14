@@ -54,7 +54,10 @@ PetscReal g_dt = 0.01;
 PetscInt g_stepsMax = 1000;
 
 PetscReal gate_time_step = 1.0;
-int nbQubits; 
+int nbQubits = 0; 
+// Dimesition of the total density matrix:
+// e.g. 2^nbQubits for qubit systems.
+int densityMatrixDim = 1;
 
 bool g_wasInitialized = false;
 int g_nbTimeDepChannels = 0;
@@ -174,11 +177,14 @@ int XACC_QuaC_Initialize(int in_nbQubit, const int* in_qbitDims)
    
     nbQubits = in_nbQubit;
     qubits  = malloc(in_nbQubit * sizeof(struct operator));    
+    densityMatrixDim = 1;
     
     for (int i = 0; i < nbQubits; i++)
     {
         int qubitDim = in_qbitDims[i];
         LOG_INFO("Qubit %d : Dim = %d \n", i, qubitDim);
+        // Update total density matrix dimension
+        densityMatrixDim = densityMatrixDim * qubitDim;
         create_op(qubitDim, &qubits[i]);
         set_initial_pop(qubits[i], 0);
     }
@@ -409,4 +415,16 @@ ComplexCoefficient XACC_QuaC_GetDensityMatrixElement(int in_row, int in_column)
     result.real = PetscRealPart(dmElement);
     result.imag = PetscImaginaryPart(dmElement);
     return result;
+}
+
+int XACC_QuaC_GetDensityMatrixDiagElements(ComplexCoefficient** out_result)
+{
+    *out_result = malloc(densityMatrixDim * sizeof(ComplexCoefficient));
+    // Get all diagonal elements of the density matrix
+    for (int i = 0; i < densityMatrixDim; ++i)
+    {
+        (*out_result)[i] = XACC_QuaC_GetDensityMatrixElement(i, i);
+    }
+    
+    return densityMatrixDim;
 }

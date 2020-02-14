@@ -116,4 +116,6 @@ XACC_QUAC_API double XACC_QuaC_CalcConcurrence(int in_qubitIdx1, int in_qubitIdx
 // Get a specific element from the density matrix
 XACC_QUAC_API ComplexCoefficient XACC_QuaC_GetDensityMatrixElement(int in_row, int in_column);
 
+// Get diagonal elements of the density matrix
+XACC_QUAC_API int XACC_QuaC_GetDensityMatrixDiagElements(ComplexCoefficient** out_result);
 // ==============================================================================================

@@ -367,6 +367,66 @@ TEST(DigitalGateTester, testQuantumProcessTomography)
     }
 }
 
+// Test digital simulation (Deuteuron)
+TEST(DigitalGateTester, testDeuteuron)
+{
+    const int NB_SHOTS = 10000;
+    auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
+    const bool loadOK = systemModel->loadHamiltonianJson(createTransmonHamiltonianJson());
+    assert(loadOK);    
+    BackendChannelConfigs channelConfigs;
+    channelConfigs.dt = 1.0;    
+    channelConfigs.loFregs_dChannels.emplace_back(0.0);
+    systemModel->setChannelConfigs(channelConfigs);
+    // Use QuaC
+    auto accelerator = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel), std::make_pair("shots", NB_SHOTS)  });    
+    auto xasmCompiler = xacc::getCompiler("xasm");
+    auto ir = xasmCompiler->compile(R"(__qpu__ void ansatz(qbit q, double t) {
+      X(q[0]);
+      Ry(q[1], t);
+      CX(q[1], q[0]);
+      H(q[0]);
+      H(q[1]);
+      Measure(q[0]);
+      Measure(q[1]);
+    })", accelerator);
+
+    auto program = ir->getComposite("ansatz");
+    // Expected results from deuteron_2qbit_xasm_X0X1
+    const std::vector<double> expectedResults {
+        0.0,
+        -0.324699,
+        -0.614213,
+        -0.837166,
+        -0.9694,
+        -0.996584,
+        -0.915773,
+        -0.735724,
+        -0.475947,
+        -0.164595,
+        0.164595,
+        0.475947,
+        0.735724,
+        0.915773,
+        0.996584,
+        0.9694,
+        0.837166,
+        0.614213,
+        0.324699,
+        0.0
+    };
+
+    const auto angles = xacc::linspace(-xacc::constants::pi, xacc::constants::pi, 20);
+    for (size_t i = 0; i < angles.size(); ++i)
+    {
+        auto buffer = xacc::qalloc(2);
+        auto evaled = program->operator()({ angles[i] });
+        accelerator->execute(buffer, evaled);
+        // Error bar limit: 10% of the expected (or 0.01 if the expected is 0.0)
+        EXPECT_NEAR(buffer->getExpectationValueZ(), expectedResults[i], std::max(0.1*std::abs(expectedResults[i]), 0.01));
+    }
+}
+
 int main(int argc, char **argv) 
 {
   xacc::Initialize(argc, argv);

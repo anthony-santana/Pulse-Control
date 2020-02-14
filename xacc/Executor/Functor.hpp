@@ -181,10 +181,11 @@ struct SimResult
 {
     std::vector<double> finalPopulations;
     std::vector<TimeSteppingData> tsData; 
+    std::vector<std::complex<double>> dmDiagElems;
     
     template<class Archive>
     void serialize(Archive& archive)
     {
-        archive(finalPopulations, tsData); 
+        archive(finalPopulations, tsData, dmDiagElems); 
     }
 };

@@ -161,18 +161,18 @@ TEST(CircuitTester, testInteraction)
         // Check via bitstrings
         const double prob01 = qubitReg->computeMeasurementProbability("01");
         const double prob10 = qubitReg->computeMeasurementProbability("10");
-        EXPECT_NEAR(prob01 + prob10, 1.0, 1e-3);
+        EXPECT_NEAR(prob01 + prob10, 1.0, 0.01);
         if (shouldSwap)
         {
             // SWAP was run
             // The final result should be Q0 = 0; Q1 = 1 after the SWAP, hence bitstring = '01'
             // Note: bit string is constructed by 'push_back' hence Q0 will be the first bit in the string.
-            EXPECT_NEAR(prob01, 1.0, 1e-3);
+            EXPECT_NEAR(prob01, 1.0, 0.01);
         }
         else
         {
             // If no SWAP, we should get an '10' bitstring (just a PI pulse on Q0)
-            EXPECT_NEAR(prob10, 1.0, 1e-3);
+            EXPECT_NEAR(prob10, 1.0, 0.01);
         }
     };
     
