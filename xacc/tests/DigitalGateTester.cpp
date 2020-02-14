@@ -422,8 +422,8 @@ TEST(DigitalGateTester, testDeuteuron)
         auto buffer = xacc::qalloc(2);
         auto evaled = program->operator()({ angles[i] });
         accelerator->execute(buffer, evaled);
-        // Error bar limit: 10% of the expected (or 0.01 if the expected is 0.0)
-        EXPECT_NEAR(buffer->getExpectationValueZ(), expectedResults[i], std::max(0.1*std::abs(expectedResults[i]), 0.01));
+        // Error bar limit: 0.1
+        EXPECT_NEAR(buffer->getExpectationValueZ(), expectedResults[i], 0.1);
     }
 }
 
