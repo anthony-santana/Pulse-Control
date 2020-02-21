@@ -151,3 +151,52 @@ q.print_density_matrix()
 ```
 
 
+## Build XACC QuaC Accelerator Plugin
+
+If we want to use QuaC as an XACC accelerator, we need to build and install the XACC framework.
+
+### Instructions:
+
+1. Build XACC
+
+Please follow [this](https://xacc.readthedocs.io/en/latest/install.html) to install prerequisites and build XACC.
+
+It's a good idea to build XACC with tests (passing `-DXACC_BUILD_TESTS=TRUE` to `cmake`) and 
+to run `ctest` after installation to make sure everything is working as expected.
+
+2. Build PETSc
+
+The recommended build commands are as follows:
+
+```
+git clone -b maint https://bitbucket.org/petsc/petsc petsc 
+cd petsc 
+export PETSC_DIR=${PWD} && export PETSC_ARCH=linux-gnu-c-complex 
+./configure --with-scalar-type=complex --download-mpich --download-fblaslapack=1 --with-debugging=no COPTFLAGS=-O3 CXXOPTFLAGS=-O3 FOPTFLAGS=-O3 --with-64-bit-indices 
+make PETSC_DIR=${PETSC_DIR} PETSC_ARCH=${PETSC_ARCH} all
+```
+
+3. Build and install QuaC as an XACC plugin
+
+- Clone this repository (this branch)
+
+```
+git clone -b xacc-integration https://github.com/ORNL-QCI/QuaC.git
+```
+
+- Build
+
+```
+cd QuaC && mkdir build && cd build 
+cmake .. -DPETSC_DIR=${PETSC_DIR} -DPETSC_ARCH=linux-gnu-c-complex -DXACC_DIR=~/.xacc 
+make install 
+```
+
+- Run unit tests
+
+```
+ctest --output-on-failure
+```
+
+Note: This build instructions have only been tested with the GCC toolchain on Linux. 
+We'll soon support APPLE (OSX) platforms. 
