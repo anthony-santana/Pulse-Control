@@ -21,3 +21,7 @@ target_compile_definitions(pulse_command_def PRIVATE GATEIR_TEST_FILE_DIR="${CMA
 add_executable(hamiltonian_json_input hamiltonian_json_input.cpp)
 target_link_libraries(hamiltonian_json_input PRIVATE xacc_quac xacc::quantum_gate)
 target_compile_definitions(hamiltonian_json_input PRIVATE GATEIR_TEST_FILE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
+
+
+add_executable(goat_optimized_pulse goat_optimized_pulse.cpp)
+target_link_libraries(goat_optimized_pulse PRIVATE xacc_quac xacc::quantum_gate)
