@@ -25,3 +25,7 @@ target_compile_definitions(hamiltonian_json_input PRIVATE GATEIR_TEST_FILE_DIR="
 
 add_executable(goat_optimized_pulse goat_optimized_pulse.cpp)
 target_link_libraries(goat_optimized_pulse PRIVATE xacc_quac xacc::quantum_gate)
+
+add_executable(freq_sweep freq_sweep.cpp)
+target_link_libraries(freq_sweep PRIVATE xacc_quac xacc::quantum_gate)
+target_compile_definitions(freq_sweep PRIVATE GATEIR_TEST_FILE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
