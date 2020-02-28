@@ -62,6 +62,9 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
     endif()
 endif()
 
+list (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
+find_package (PETSc REQUIRED)
+
 set(QUAC_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/src)
 set (XACC_QUAC_BASE_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/base)
 
@@ -90,13 +93,9 @@ if (PETSC_DIR)
   message(STATUS "Libraries: ${MPI_CXX_LIBRARIES}")
 
   include_directories(${MPI_CXX_INCLUDE_DIRS})
-  link_libraries(${MPI_CXX_LIBRARIES})
+  link_libraries(${MPI_CXX_LIBRARIES} ${PETSC_LIBRARIES})
   link_libraries(-Wl,-rpath,${PETSC_DIR}/${PETSC_ARCH}/lib -L${PETSC_DIR}/${PETSC_ARCH}/lib)
-  # TODO: parse these from PETSc Makefile config var 
-  link_libraries(-lpetsc -lflapack -lfblas)
-  link_libraries(-lstdc++ -ldl -lmpifort -lmpi -lgcc_s -lquadmath)
-  link_libraries(-lpthread -lm -lstdc++ -ldl -lmpicxx -lgfortran)
-
+  
   add_library(QuaC STATIC
     src/dm_utilities.c
     src/kron.c
