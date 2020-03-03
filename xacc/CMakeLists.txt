@@ -59,7 +59,7 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
 xacc_configure_plugin_rpath(${LIBRARY_NAME})
 set (CMAKE_INSTALL_PREFIX "${XACC_ROOT}" CACHE PATH "default install path" FORCE )
 
-install(TARGETS ${LIBRARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins)
+install(FILES $<TARGET_FILE:${LIBRARY_NAME}> DESTINATION ${CMAKE_INSTALL_PREFIX}/plugins) 
 add_subdirectory(tests)
 
 # Build MPI PlatformNode
@@ -68,3 +68,9 @@ add_executable(${MPI_EXECUTOR} Executor/MPI/PlatformNode.cpp)
 target_include_directories(${MPI_EXECUTOR} PRIVATE  ./Executor ./Executor/MPI ./Utils ${QUAC_INCLUDE_DIRS} ${XACC_QUAC_BASE_INCLUDE_DIR} ./tpls/cereal/include)
 target_link_libraries(${MPI_EXECUTOR} PRIVATE FunctorExecutor)
 
+find_package(Python COMPONENTS Interpreter Development)
+if(Python_FOUND)
+    add_subdirectory(python)
+else()
+    message(WARNING "Cannot find Python. Skip building Python bindings.")
+endif()

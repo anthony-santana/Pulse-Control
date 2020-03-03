@@ -21,12 +21,19 @@ namespace QuaC {
                 return;
             }
         }
-        else if (params.getPointerLike<PulseSystemModel>("system-model")) 
+        else if (params.pointerLikeExists<PulseSystemModel>("system-model")) 
         {
             PulseSystemModel* systemModel = params.getPointerLike<PulseSystemModel>("system-model");
             // we don't own this one, don't try to delete it.
             m_systemModel = std::shared_ptr<PulseSystemModel>(systemModel , [](PulseSystemModel* ptr){});
         } 
+        else if (params.stringExists("system-model"))
+        {
+            // Request the system model as a service
+            std::cout << "Using system model: " << params.getString("system-model") << "\n";
+            auto serviceRef = xacc::getService<PulseSystemModel>(params.getString("system-model"));
+            m_systemModel = std::shared_ptr<PulseSystemModel>(serviceRef.get(), [](PulseSystemModel* ptr){}); 
+        }
         else
         {
             xacc::error("Either a PulseSystemModel object or a path to the JSON configs file is required.");

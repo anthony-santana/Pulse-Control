@@ -5,6 +5,7 @@
 #include <iostream>
 #include "Hamiltonian.hpp"
 #include "QuaC_TearDown.hpp"
+#include "PulseSystemModel.hpp"
 
 using namespace cppmicroservices;
 
@@ -18,6 +19,7 @@ public:
     context.RegisterService<xacc::Accelerator>(acc);
     context.RegisterService<QuaC::HamiltonianParsingUtil>(std::make_shared<QuaC::HamiltonianParsingUtil>());
     context.RegisterService<xacc::TearDown>(std::make_shared<QuacTearDown>());
+    context.RegisterService<QuaC::PulseSystemModel>(std::make_shared<QuaC::PulseSystemModel>("global"));
   }
 
   void Stop(BundleContext context) {}

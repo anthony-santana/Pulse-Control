@@ -14,7 +14,7 @@ public:
     std::vector<std::unique_ptr<HamiltonianTerm>>& getTerms() { return m_terms; }
     void setQubitDimension(size_t in_qubitIdx, size_t in_dimension) { m_qubitDimension[in_qubitIdx] = in_dimension; }
     size_t getQubitDimension(size_t in_qubitIdx) const;
-    
+    void reset();
 private:
     std::vector<std::unique_ptr<HamiltonianTerm>> m_terms;
     std::unordered_map<size_t, size_t> m_qubitDimension;
@@ -22,13 +22,16 @@ private:
 
 
 // A PulseSystemModel encapsulates all model parameters necessary for dynamical simulation.
-class PulseSystemModel
+class PulseSystemModel : public xacc::Identifiable 
 {
 public:
     PulseSystemModel(const std::string& in_name = "default") :
         m_name(in_name)
     {}
 
+    const std::string name() const override { return m_name; }
+    const std::string description() const override { return "Pulse-level System Model"; }
+    
     // Try to load the entire system model from Json (must be in the IBM Open Pulse format)
     bool fromQobjectJson(const std::string& in_jsonString);
     
@@ -52,7 +55,7 @@ public:
 
     void setQubitInitialPopulation(size_t in_qubitIdx, double in_initialPopulation) { m_qubitInitialPopulation[in_qubitIdx] = in_initialPopulation; }
     double getQubitInitialPopulation(size_t in_qubitIdx) const;
-    
+    void reset();
 private:
     std::string m_name;
     HamiltonianModel m_hamiltonian;

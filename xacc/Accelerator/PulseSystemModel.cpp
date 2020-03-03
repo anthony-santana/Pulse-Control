@@ -194,4 +194,20 @@ bool PulseSystemModel::addCommandDef(const std::string& in_cmdDefName, const std
     m_pulseCmdDefs.emplace(in_cmdDefName, in_pulseComposite);
     return true;
 }
+
+void HamiltonianModel::reset()
+{
+    m_terms.clear();
+    m_qubitDimension.clear();
+}
+
+void PulseSystemModel::reset()
+{
+    m_hamiltonian.reset();
+    BackendChannelConfigs defaultConfigs;
+    m_channelConfigs = defaultConfigs;
+    m_pulseCmdDefs.clear();
+    m_qubitToT1.clear();
+    m_qubitInitialPopulation.clear();
+}
 }
