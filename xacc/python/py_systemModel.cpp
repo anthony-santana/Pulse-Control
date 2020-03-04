@@ -24,11 +24,11 @@ PYBIND11_MODULE(pyquaC, m)
         .def_readwrite("loFregs_uChannels", &BackendChannelConfigs::loFregs_uChannels)
         .def_readwrite("dt", &BackendChannelConfigs::dt);
 
-    py::class_<QuaC::PulseSystemModel>(m, "PulseSystemModel")
+    py::class_<QuaC::PulseSystemModel, std::shared_ptr<QuaC::PulseSystemModel>>(m, "PulseSystemModel")
         .def(py::init<>())
-        .def("name", &QuaC::PulseSystemModel::name)
-        .def("setQubitT1", &QuaC::PulseSystemModel::setQubitT1)
-        .def("getQubitT1", &QuaC::PulseSystemModel::getQubitT1)
-        .def("loadHamiltonianJson", &QuaC::PulseSystemModel::loadHamiltonianJson)
-        .def("setChannelConfigs", &QuaC::PulseSystemModel::setChannelConfigs);
+        .def("name", (const std::string(QuaC::PulseSystemModel::*)()) & QuaC::PulseSystemModel::name, "Get model name")
+        .def("setQubitT1", (void(QuaC::PulseSystemModel::*)(size_t, double)) & QuaC::PulseSystemModel::setQubitT1, "Set T1 of a qubit")
+        .def("getQubitT1", (double(QuaC::PulseSystemModel::*)(size_t)) & QuaC::PulseSystemModel::getQubitT1, "Get T1 of a qubit")
+        .def("loadHamiltonianJson", (bool(QuaC::PulseSystemModel::*)(const std::string&)) & QuaC::PulseSystemModel::loadHamiltonianJson, "Load Hamiltonian from JSON")
+        .def("setChannelConfigs", (void(QuaC::PulseSystemModel::*)(const BackendChannelConfigs&)) & QuaC::PulseSystemModel::setChannelConfigs, "Set backend channel configurations");
 }
