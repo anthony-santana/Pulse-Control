@@ -205,6 +205,16 @@ void XACC_QuaC_AddQubitDecay(int in_qubitIdx, double in_kappa)
     add_lin(in_kappa, qubits[in_qubitIdx]);
 }
 
+bool IsQubit(int in_idx)
+{
+    return qubits[in_idx]->my_levels == 2;
+}
+
+bool IsPauliOp(const char* in_op)
+{
+    return strcmp(in_op, "X") == 0 ||  strcmp(in_op, "Y") == 0 || strcmp(in_op, "Z") == 0;
+}
+
 operator GetQubitOperator(operator qubitOp, const char* in_op)
 {
     if (strcmp(in_op, "SM") == 0) {
@@ -228,6 +238,35 @@ operator GetQubitOperator(operator qubitOp, const char* in_op)
     }
 }
 
+// Pauli X, Y, Z decomposition for dim > 2 systems
+struct PauliDecomp 
+{
+    PetscScalar op1_coeff;
+    operator op1;
+    PetscScalar op2_coeff;
+    operator op2;
+};
+
+struct PauliDecomp getPauliDecomposition(const char* in_op, int in_qubitIdx)
+{
+    if (strcmp(in_op, "X") == 0) 
+    {
+        struct PauliDecomp result = { 1.0 , qubits[in_qubitIdx]->dag, 1.0, qubits[in_qubitIdx] };
+        return result;
+    }
+    else if (strcmp(in_op, "Y") == 0) 
+    {
+        struct PauliDecomp result = { 1.0 * PETSC_i, qubits[in_qubitIdx]->dag, -1.0 * PETSC_i, qubits[in_qubitIdx] };
+        return result;
+    }
+    else if (strcmp(in_op, "Z") == 0)
+    {
+        struct PauliDecomp result = { 1.0, qubits[in_qubitIdx]->eye, -2.0, qubits[in_qubitIdx]->n };
+        return result;
+    }
+    printf("ERROR! Unknown operator!\n");
+    exit(1);
+}
 
 void XACC_QuaC_AddConstHamiltonianTerm1(const char* in_op, int in_qubitIdx, ComplexCoefficient in_coeff)
 {
@@ -235,8 +274,19 @@ void XACC_QuaC_AddConstHamiltonianTerm1(const char* in_op, int in_qubitIdx, Comp
     ASSERT_QUBIT_INDEX(in_qubitIdx);
     
     LOG_INFO("H += (%lf + 1j*%lf)*%s%d\n", in_coeff.real, in_coeff.imag, in_op, in_qubitIdx);
-
-    add_to_ham(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx], in_op));
+    // If the system is Qubit (dimension = 2) or the operator is not a Pauli X, Y, Z
+    // just process as normal
+    if (IsQubit(in_qubitIdx) || !IsPauliOp(in_op))
+    {
+        add_to_ham(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx], in_op));
+    }
+    else
+    {
+        struct PauliDecomp pairOps = getPauliDecomposition(in_op, in_qubitIdx);
+        // Add the two terms associated with the Pauli ops
+        add_to_ham((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps.op1_coeff, pairOps.op1);
+        add_to_ham((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps.op2_coeff, pairOps.op2);
+    }
 }
 
 
@@ -246,8 +296,19 @@ void XACC_QuaC_AddTimeDependentHamiltonianTerm1(const char* in_op, int in_qubitI
     ASSERT_QUBIT_INDEX(in_qubitIdx);
     
     LOG_INFO("H += %lf * %s%d * Channel_%d (t)\n", in_coefficient, in_op, in_qubitIdx, in_channelId);
+    if (IsQubit(in_qubitIdx) || !IsPauliOp(in_op))
+    {
+        add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
+    }
+    else
+    {
+        struct PauliDecomp pairOps = getPauliDecomposition(in_op, in_qubitIdx);
+        // Add the two terms associated with the Pauli ops
+        // TODO: support complex coefficients (Y operator) here
+        add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps.op1_coeff), g_channelFnArray[in_channelId], 1, pairOps.op1);
+        add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps.op2_coeff), g_channelFnArray[in_channelId], 1, pairOps.op2);
+    }
 
-    add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 1, GetQubitOperator(qubits[in_qubitIdx], in_op));
     // Number of channels is the max of index + 1
     g_nbTimeDepChannels = (in_channelId + 1 > g_nbTimeDepChannels) ? in_channelId + 1 : g_nbTimeDepChannels;
 }
@@ -260,8 +321,38 @@ void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, co
     ASSERT_QUBIT_INDEX(in_qubitIdx2);
     
     LOG_INFO("H += (%lf + 1j*%lf)*%s%d*%s%d\n", in_coeff.real, in_coeff.imag, in_op1, in_qubitIdx1, in_op2, in_qubitIdx2);
-
-    add_to_ham_mult2(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+    if ((IsQubit(in_qubitIdx1) || !IsPauliOp(in_op1)) && (IsQubit(in_qubitIdx2) || !IsPauliOp(in_op2)))
+    {
+        add_to_ham_mult2(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+    }
+    else
+    {
+        bool q1NeedTransform = !IsQubit(in_qubitIdx1) && IsPauliOp(in_op1); 
+        bool q2NeedTransform = !IsQubit(in_qubitIdx2) && IsPauliOp(in_op2); 
+        if (q1NeedTransform && !q2NeedTransform)
+        {
+            struct PauliDecomp pairOps = getPauliDecomposition(in_op1, in_qubitIdx1);
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps.op1_coeff, pairOps.op1, GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps.op2_coeff, pairOps.op1, GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+        }
+        else if (!q1NeedTransform && q2NeedTransform)
+        {
+            struct PauliDecomp pairOps = getPauliDecomposition(in_op2, in_qubitIdx2);
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps.op1_coeff, GetQubitOperator(qubits[in_qubitIdx1], in_op1), pairOps.op1);
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps.op2_coeff, GetQubitOperator(qubits[in_qubitIdx1], in_op1), pairOps.op1);
+        }
+        else
+        {
+            struct PauliDecomp pairOps1 = getPauliDecomposition(in_op1, in_qubitIdx1);
+            struct PauliDecomp pairOps2 = getPauliDecomposition(in_op2, in_qubitIdx2);
+            // Decompose both Pauli ops
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps1.op1_coeff * pairOps2.op1_coeff, pairOps1.op1, pairOps2.op1);
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps1.op1_coeff * pairOps2.op2_coeff, pairOps1.op1, pairOps2.op2);
+            
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps1.op2_coeff * pairOps2.op1_coeff, pairOps1.op2, pairOps2.op1);
+            add_to_ham_mult2((in_coeff.real + in_coeff.imag * PETSC_i) * pairOps1.op2_coeff * pairOps2.op2_coeff, pairOps1.op2, pairOps2.op2);
+        }
+    }
 }
 
 void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, const char* in_op2, int in_qubitIdx2, int in_channelId, double in_coefficient)
@@ -273,7 +364,43 @@ void XACC_QuaC_AddTimeDependentHamiltonianTerm2(const char* in_op1, int in_qubit
     g_nbTimeDepChannels = (in_channelId + 1 > g_nbTimeDepChannels) ? in_channelId + 1 : g_nbTimeDepChannels;
     
     LOG_INFO("H += %lf * %s%d * %s%d * Channel_%d (t)\n", in_coefficient, in_op1, in_qubitIdx1, in_op2, in_qubitIdx2, in_channelId);
-    add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 2, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+    if ((IsQubit(in_qubitIdx1) || !IsPauliOp(in_op1)) && (IsQubit(in_qubitIdx2) || !IsPauliOp(in_op2)))
+    {
+        add_to_ham_time_dep_with_coeff(in_coefficient, g_channelFnArray[in_channelId], 2, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+    }
+    else
+    {
+        bool q1NeedTransform = !IsQubit(in_qubitIdx1) && IsPauliOp(in_op1); 
+        bool q2NeedTransform = !IsQubit(in_qubitIdx2) && IsPauliOp(in_op2); 
+        if (q1NeedTransform && !q2NeedTransform)
+        {
+            struct PauliDecomp pairOps = getPauliDecomposition(in_op1, in_qubitIdx1);
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps.op1_coeff), g_channelFnArray[in_channelId], 2, pairOps.op1, GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps.op2_coeff), g_channelFnArray[in_channelId], 2, pairOps.op2, GetQubitOperator(qubits[in_qubitIdx2], in_op2));
+        }
+        else if (!q1NeedTransform && q2NeedTransform)
+        {
+            struct PauliDecomp pairOps = getPauliDecomposition(in_op2, in_qubitIdx2);
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps.op1_coeff), g_channelFnArray[in_channelId], 2, GetQubitOperator(qubits[in_qubitIdx1], in_op1), pairOps.op1);
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps.op1_coeff), g_channelFnArray[in_channelId], 2, GetQubitOperator(qubits[in_qubitIdx1], in_op1), pairOps.op2);
+        }
+        else
+        {
+            struct PauliDecomp pairOps1 = getPauliDecomposition(in_op1, in_qubitIdx1);
+            struct PauliDecomp pairOps2 = getPauliDecomposition(in_op2, in_qubitIdx2);
+
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps1.op1_coeff) * PetscRealPart(pairOps2.op1_coeff), g_channelFnArray[in_channelId], 2, 
+                pairOps1.op1, pairOps2.op1);
+            
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps1.op1_coeff) * PetscRealPart(pairOps2.op2_coeff), g_channelFnArray[in_channelId], 2, 
+                pairOps1.op1, pairOps2.op2);
+
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps1.op2_coeff) * PetscRealPart(pairOps2.op1_coeff), g_channelFnArray[in_channelId], 2, 
+                pairOps1.op2, pairOps2.op1);
+            add_to_ham_time_dep_with_coeff(in_coefficient * PetscRealPart(pairOps1.op2_coeff) * PetscRealPart(pairOps2.op2_coeff), g_channelFnArray[in_channelId], 2, 
+                pairOps1.op2, pairOps2.op2);
+        }
+    }
 }
 
 int XACC_QuaC_RunPulseSim(PulseChannelProvider* in_pulseDataProvider, double in_dt, double in_stopTime, int in_stepMax, double** out_result, int* out_nbSteps, TSData** out_timeSteppingData)
