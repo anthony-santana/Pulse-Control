@@ -578,12 +578,41 @@ namespace QuaC {
       // Generate bit string from the diagonal elements of the density matrix
       // (i.e. probabilities of all the basis states)
       const auto& dmDiagElems = simResult.dmDiagElems;
-      if (!m_measureQubits.empty())
+      const bool isQubitSystem = [&](){
+         for (int i = 0; i < m_buffer->size(); ++i)
+         {
+            if (m_systemModel->getHamiltonian().getQubitDimension(i) != 2)
+            {
+               return false;
+            }
+         }
+
+         return true;
+      }();
+      
+      
+      if (isQubitSystem && !m_measureQubits.empty())
       {
          for(int i = 0; i < m_shotCount; ++i)
          {
             m_buffer->appendMeasurement(generateResultBitString(dmDiagElems));
          }
+      }
+      else
+      {
+         // Non-qubit system (i.e. higher-dimensional quantum systems)
+         // Just embed the diagonal Density Matrix elements to the buffer.
+         // We don't really have a standard way of doing measurements in this case.
+         // e.g. should we report number-resolving count (beyond 0 and 1)
+         // or should we consider state > 1 non-measurable, etc.
+         std::vector<double> dmDiags;
+         dmDiags.reserve(dmDiagElems.size());
+         for (const auto& elem : dmDiagElems)
+         {
+            dmDiags.emplace_back(elem.real());
+         }
+
+         m_buffer->addExtraInfo("DensityMatrixDiags", dmDiags);  
       }
    }
 

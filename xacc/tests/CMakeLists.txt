@@ -26,3 +26,6 @@ if (ENABLE_MPI_TESTS)
    target_link_libraries(QuaCMPITester xacc xacc_quac xacc::quantum_gate)
    target_compile_definitions(QuaCMPITester PRIVATE GATEIR_TEST_FILE_DIR="${CMAKE_SOURCE_DIR}/xacc_examples/resources")
 endif()
+
+add_xacc_test(MultiLevel)
+target_link_libraries(MultiLevelTester xacc xacc_quac xacc::quantum_gate)
