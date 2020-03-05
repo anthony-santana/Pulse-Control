@@ -8,7 +8,6 @@ sys.path.insert(1, str(Path.home()) + '/.xacc')
 # Import xacc and quaC python wrapper
 import os
 import xacc
-import pyquaC 
 import json
 # Note to ORNL CADES users:
 # Make sure numpy and matplotlib are installed
@@ -40,7 +39,7 @@ hamiltonianJson = {
 }
 
 # Create a pulse system model object 
-model = pyquaC.createPulseModel()
+model = xacc.createPulseModel()
 
 # Load the Hamiltonian JSON (string) to the system model
 loadResult = model.loadHamiltonianJson(json.dumps(hamiltonianJson))
@@ -65,7 +64,7 @@ if loadResult is True :
     result1 = np.zeros(freq1.size)
     i = 0
     for freq in freq1:
-        channelConfig = pyquaC.BackendChannelConfigs()
+        channelConfig = xacc.BackendChannelConfigs()
         # dt (time between data samples)
         channelConfig.dt = 3.5555555555555554
         channelConfig.loFregs_dChannels = [freq, 4.83]

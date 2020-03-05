@@ -5,7 +5,7 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(pyquaC, m) 
+PYBIND11_MODULE(_pyquaC, m) 
 {
     m.doc() = "XACC QuaC pluggin Python wrapper"; 
     m.def(
