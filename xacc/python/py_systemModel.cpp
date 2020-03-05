@@ -1,7 +1,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/complex.h>
 #include "PulseSystemModel.hpp"
 #include "xacc_service.hpp"
+#include "Pulse.hpp"
 
 namespace py = pybind11;
 
@@ -15,6 +17,20 @@ PYBIND11_MODULE(_pyquaC, m)
             auto serviceRef = xacc::getService<QuaC::PulseSystemModel>("global");
             serviceRef->reset();
             return serviceRef;
+        },
+    "");
+    m.def(
+        "addPulse",
+        [](const std::string& in_pulseName, const std::vector<std::complex<double>>& in_pulseData) {
+            auto pulse = std::make_shared<xacc::quantum::Pulse>(in_pulseName);
+            std::vector<std::vector<double>> samples;
+            samples.reserve(in_pulseData.size());
+            for (const auto& dataPoint : in_pulseData)
+            {
+                samples.emplace_back(std::vector<double>{ dataPoint.real(), dataPoint.imag()});
+            }
+            pulse->setSamples(samples);
+            xacc::contributeService(in_pulseName, pulse);
         },
     "");
 
