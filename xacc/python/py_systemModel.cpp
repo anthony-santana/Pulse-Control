@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/complex.h>
+#include "PulseChannelController.hpp"
+#include "PulseGen.hpp"
 #include "PulseSystemModel.hpp"
 #include "xacc_service.hpp"
 #include "Pulse.hpp"
@@ -32,13 +34,24 @@ PYBIND11_MODULE(_pyquaC, m)
             pulse->setSamples(samples);
             xacc::contributeService(in_pulseName, pulse);
         },
-    "");
+    "")
+    .def("SquarePulse", [](size_t nSamples) {return QuaC::SquarePulse(nSamples);}, "")
+    .def("PulseFunc", [](const std::string& in_functionString, size_t in_nbSamples){
+        return QuaC::PulseFunc(in_functionString, in_nbSamples);
+    })
+    .def("GaussianPulse", [](size_t in_nbSamples, double in_sigma) {
+        return QuaC::GaussianPulse(in_nbSamples, in_sigma);
+    })
+    .def("createPulse", [](const std::string& name, const std::string& channel) -> std::shared_ptr<xacc::Instruction> {
+        return std::make_shared<xacc::quantum::Pulse>(name, channel);
+    });
 
     py::class_<BackendChannelConfigs>(m, "BackendChannelConfigs")
         .def(py::init<>())
         .def_readwrite("loFregs_dChannels", &BackendChannelConfigs::loFregs_dChannels)
         .def_readwrite("loFregs_uChannels", &BackendChannelConfigs::loFregs_uChannels)
-        .def_readwrite("dt", &BackendChannelConfigs::dt);
+        .def_readwrite("dt", &BackendChannelConfigs::dt)
+        .def("addOrReplacePulse", &BackendChannelConfigs::addOrReplacePulse);
 
     py::class_<QuaC::PulseSystemModel, std::shared_ptr<QuaC::PulseSystemModel>>(m, "PulseSystemModel")
         .def(py::init<>())
@@ -47,4 +60,5 @@ PYBIND11_MODULE(_pyquaC, m)
         .def("getQubitT1", (double(QuaC::PulseSystemModel::*)(size_t)) & QuaC::PulseSystemModel::getQubitT1, "Get T1 of a qubit")
         .def("loadHamiltonianJson", (bool(QuaC::PulseSystemModel::*)(const std::string&)) & QuaC::PulseSystemModel::loadHamiltonianJson, "Load Hamiltonian from JSON")
         .def("setChannelConfigs", (void(QuaC::PulseSystemModel::*)(const BackendChannelConfigs&)) & QuaC::PulseSystemModel::setChannelConfigs, "Set backend channel configurations");
+    
 }

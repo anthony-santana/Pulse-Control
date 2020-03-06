@@ -159,6 +159,7 @@ TEST(MultiLevelTester, transmonQubitHamiltonian)
 
     // Run the Pulse simulation with the Hamiltonian provided
     quaC->execute(qubitReg, compositeInst);
+    qubitReg->print();
     const auto finalPopulations = qubitReg->getInformation("DensityMatrixDiags").as<std::vector<double>>();
     // We expect to have 3 numbers
     EXPECT_EQ(finalPopulations.size(), 3);
