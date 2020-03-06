@@ -108,6 +108,57 @@ TEST(MultiLevelTester, testThreeLevel)
     runTest(true);
 }
 
+// Transmon qubit Hamiltonian (three-level)
+// in the ladder operator form.
+// This is to investigate QuaC solver 
+// (!!!reducing norm of density matrix!!!! in some cases)
+TEST(MultiLevelTester, transmonQubitHamiltonian)
+{
+    // Three-level single-qubit Hamiltonian
+    // Ref: Phys. Rev. A 96, 022330 
+    // Equation (6), params in Sec III, first paragraph
+    const std::string transmonHamiltonian = R"#(
+        {
+            "description": "One-qubit Hamiltonian.",
+            "h_latex": "",
+            "h_str": ["(w - 0.5*alpha)*O0", "0.5*alpha*O0*O0", "O*(SM0 + SP0)||D0"],
+            "osc": {},
+            "qub": {
+                "0": 3
+            },
+            "vars": {
+                "w": 31.63772297724,
+                "alpha": -1.47969,
+                "O": 0.0314
+            }
+        }
+    )#";
+    
+    auto systemModel = std::make_shared<QuaC::PulseSystemModel>();
+    const bool loadOk = systemModel->loadHamiltonianJson(transmonHamiltonian);
+    EXPECT_TRUE(loadOk);
+    
+    BackendChannelConfigs channelConfigs;
+    channelConfigs.dt = 1.0;
+    channelConfigs.loFregs_dChannels.emplace_back(5.0353);
+    const size_t nbSamples = 100;
+    // Constant drive
+    channelConfigs.addOrReplacePulse("square", QuaC::SquarePulse(nbSamples));
+    
+    systemModel->setChannelConfigs(channelConfigs);
+    auto quaC = xacc::getAccelerator("QuaC", { std::make_pair("system-model", systemModel) });    
+    auto qubitReg = xacc::qalloc(1);    
+
+    auto provider = xacc::getIRProvider("quantum");
+    auto compositeInst = provider->createComposite("test_pulse");
+    auto pulseInstD0 = std::make_shared<xacc::quantum::Pulse>("square", "d0");
+
+    compositeInst->addInstruction(pulseInstD0);
+
+    // Run the Pulse simulation with the Hamiltonian provided
+    quaC->execute(qubitReg, compositeInst);
+    qubitReg->print();
+}
 
 int main(int argc, char **argv) 
 {
