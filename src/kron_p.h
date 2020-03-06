@@ -34,6 +34,8 @@ void _add_PETSc_DM_kron_ij(PetscScalar,Mat,Mat,int,int,int,int,int);
 void _mult_PETSc_init_DM(Mat,Mat,double);
 void _add_to_PETSc_kron_lin_mat(Mat,PetscScalar,Mat,int,int);
 
-
+// Adding a Matrix (sparse) to the Hamiltonian
+void _add_mat_to_dense_kron(PetscScalar,Mat,int,int,op_type,int);
+void _add_mat_to_PETSc_kron(Mat,PetscScalar,Mat,int,int,op_type,int,int,int,int);
 
 #endif

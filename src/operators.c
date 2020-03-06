@@ -1524,3 +1524,75 @@ void set_initial_pop(operator op1,double initial_pop){
 
   return;
 }
+
+void add_mat_to_ham(PetscScalar in_coeff, operator in_op, Mat in_mat)
+{
+  if (in_op->my_op_type != LOWER)
+  {
+    printf("ERROR! Must provide a qubit-type operator \n");
+    exit(0);
+  }
+  
+  PetscInt rows, cols;
+  MatGetSize(in_mat, &rows, &cols);
+
+  if (rows != in_op->my_levels || cols != in_op->my_levels)
+  {
+    printf("ERROR! The input matrix is not correctly sized.\n");
+    exit(0);
+  }
+
+  // Adopting from adding a single operator to the Hamiltonian
+  PetscScalar    mat_scalar;
+
+  PetscLogEventBegin(add_to_ham_event,0,0,0,0);
+
+  _check_initialized_A();
+
+  if (PetscAbsComplex(in_coeff)!=0) 
+  { 
+    
+    //Don't add zero numbers to the hamiltonian
+
+    /*
+     * Construct the dense Hamiltonian only on the master node
+     */
+    if (nid==0 && _print_dense_ham) 
+    {
+      mat_scalar = in_coeff;
+      _add_mat_to_dense_kron(mat_scalar, in_mat, in_op->n_before, in_op->my_levels, in_op->my_op_type, in_op->position);
+    }
+
+    /*
+     * Add to the Hamiltonian matrix, ham_A
+    */
+
+    mat_scalar = -in_coeff * PETSC_i;
+    _add_mat_to_PETSc_kron(ham_A, mat_scalar, in_mat, in_op->n_before, in_op->my_levels,
+                       in_op->my_op_type, in_op->position, 1, 1, 0);
+    /*
+     * Add -i * (I cross H) to the superoperator matrix, A
+     * Since this is an additional I before, we simply
+     * pass total_levels as extra_before
+     * We pass the -a*PETSC_i to get the sign and imaginary part correct.
+     */
+
+    mat_scalar = -in_coeff*PETSC_i;
+    _add_mat_to_PETSc_kron(full_A, mat_scalar, in_mat, in_op->n_before, in_op->my_levels,
+                       in_op->my_op_type, in_op->position, total_levels, 1, 0);
+
+    /*
+     * Add i * (H^T cross I) to the superoperator matrix, A
+     * Since this is an additional I after, we simply
+     * pass total_levels as extra_after.
+     * We pass a*PETSC_i to get the imaginary part correct.
+     */
+
+    mat_scalar = in_coeff*PETSC_i;
+    _add_mat_to_PETSc_kron(full_A, mat_scalar, in_mat, in_op->n_before, in_op->my_levels,
+                       in_op->my_op_type, in_op->position, 1, total_levels, 1);
+  }
+
+  PetscLogEventEnd(add_to_ham_event, 0, 0, 0, 0);
+  return;
+}

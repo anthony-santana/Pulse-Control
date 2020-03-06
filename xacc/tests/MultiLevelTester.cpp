@@ -114,6 +114,7 @@ TEST(MultiLevelTester, testThreeLevel)
 // (!!!reducing norm of density matrix!!!! in some cases)
 TEST(MultiLevelTester, transmonQubitHamiltonian)
 {
+    
     // Three-level single-qubit Hamiltonian
     // Ref: Phys. Rev. A 96, 022330 
     // Equation (6), params in Sec III, first paragraph
@@ -141,6 +142,7 @@ TEST(MultiLevelTester, transmonQubitHamiltonian)
     BackendChannelConfigs channelConfigs;
     channelConfigs.dt = 1.0;
     channelConfigs.loFregs_dChannels.emplace_back(5.0353);
+    // 100 => PI pulse
     const size_t nbSamples = 100;
     // Constant drive
     channelConfigs.addOrReplacePulse("square", QuaC::SquarePulse(nbSamples));
@@ -157,7 +159,14 @@ TEST(MultiLevelTester, transmonQubitHamiltonian)
 
     // Run the Pulse simulation with the Hamiltonian provided
     quaC->execute(qubitReg, compositeInst);
-    qubitReg->print();
+    const auto finalPopulations = qubitReg->getInformation("DensityMatrixDiags").as<std::vector<double>>();
+    // We expect to have 3 numbers
+    EXPECT_EQ(finalPopulations.size(), 3);
+    // PI pulse
+    EXPECT_NEAR(finalPopulations[0], 0.0, 0.01);
+    EXPECT_NEAR(finalPopulations[1], 1.0, 0.01);
+    // Not so much leakage is expected
+    EXPECT_NEAR(finalPopulations[2], 0.0, 0.01);
 }
 
 int main(int argc, char **argv) 

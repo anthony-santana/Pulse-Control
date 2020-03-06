@@ -63,6 +63,9 @@ void print_dense_ham();
 void set_initial_pop(operator,double);
 void combine_ops_to_mat(Mat*,int,...);
 
+// Add a matrix corresponding to an operator subspace to the Hamiltonian
+void add_mat_to_ham(PetscScalar, operator, Mat);
+
 extern int nid; /* a ranks id */
 extern int np; /* number of processors */
 #define MAX_SUB 100  //Consider making this not a define

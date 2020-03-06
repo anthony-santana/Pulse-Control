@@ -321,6 +321,27 @@ void XACC_QuaC_AddConstHamiltonianTerm2(const char* in_op1, int in_qubitIdx1, co
     ASSERT_QUBIT_INDEX(in_qubitIdx2);
     
     LOG_INFO("H += (%lf + 1j*%lf)*%s%d*%s%d\n", in_coeff.real, in_coeff.imag, in_op1, in_qubitIdx1, in_op2, in_qubitIdx2);
+    
+    // Handle case where it's a product of two operators on the same qubit sub-system
+    // i.e. not a Kronecker product
+    // e.g., N1*N1 etc.
+    // !!IMPORTANT!! QuaC solver will not be able to handle this case
+    // add_to_ham_mult2 assumes two operators act on different qubit subspaces.
+    if (in_qubitIdx1 == in_qubitIdx2)    
+    {
+        // Handle a product term between two operators on the same qubit subspace
+        Mat tempMat;
+        // Construct the product matrix
+        combine_ops_to_mat(&tempMat, 2, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx1], in_op2));
+        PetscInt rows, cols;
+        MatGetSize(tempMat, &rows, &cols);
+        LOG_INFO("Product operator matrix size = %ld, %ld\n", rows, cols);
+        
+        add_mat_to_ham(in_coeff.real + in_coeff.imag * PETSC_i, qubits[in_qubitIdx1], tempMat);
+        MatDestroy(&tempMat);
+        return;
+    }    
+    
     if ((IsQubit(in_qubitIdx1) || !IsPauliOp(in_op1)) && (IsQubit(in_qubitIdx2) || !IsPauliOp(in_op2)))
     {
         add_to_ham_mult2(in_coeff.real + in_coeff.imag * PETSC_i, GetQubitOperator(qubits[in_qubitIdx1], in_op1), GetQubitOperator(qubits[in_qubitIdx2], in_op2));

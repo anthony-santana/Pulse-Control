@@ -2049,3 +2049,98 @@ void _add_to_dense_kron_comb_vec(PetscScalar a,int n_before_op,int levels_op,op_
 
   return;
 }
+
+
+// Get the non-zero value of the Matrix, output the row and column
+PetscScalar _get_mat_val_in_subspace(long i, Mat in_mat, long* out_rowIdx, long* out_colIdx)
+{
+  PetscInt Istart,Iend;
+  MatGetOwnershipRange(in_mat, &Istart, &Iend);
+
+  PetscInt ncols;
+  const PetscInt* cols;
+  const PetscScalar* vals;
+  if (i >= Istart && i < Iend)
+  {
+    MatGetRow(in_mat, i, &ncols, &cols, &vals);
+
+    if (ncols > 0)
+    {
+      if (ncols > 1)
+      {
+        printf("ERROR! We can only support sparse Matrix!\n");
+        exit(-1);
+      }
+
+      *out_rowIdx = i;
+      *out_colIdx = cols[0];
+
+      // printf("Matrix[%ld, %ld] = %lf + i %lf\n", *out_rowIdx, *out_colIdx, PetscRealPart(vals[0]), PetscImaginaryPart(vals[0]));
+      PetscScalar result = vals[0];
+      MatRestoreRow(in_mat, i, &ncols, &cols, &vals);
+      return result;
+    }
+
+    MatRestoreRow(in_mat, i, &ncols, &cols, &vals);
+  }
+ 
+  return 0.0;
+}
+
+
+void _add_mat_to_dense_kron(PetscScalar a, Mat mat_to_add, int n_before, int my_levels, op_type my_op_type, int position)
+{
+  long i, i_op, j_op, n_after;
+  PetscScalar    val;
+  PetscScalar add_to_mat;
+  n_after = total_levels/(my_levels*n_before);
+
+  for (i=0; i < my_levels; i++)
+  {
+    /*
+      * Since we store our operators as a type and number of levels
+      * calculate the actual i,j location for our operator,
+      * within its subspace, as well as its values.
+      */
+    val = _get_mat_val_in_subspace(i, mat_to_add, &i_op,&j_op);
+    if (val != 0.0)
+    {
+      add_to_mat = a*val;
+      _add_to_dense_kron_ij(add_to_mat, i_op, j_op, n_before, n_after, my_levels);
+    }
+  }
+  return;
+}
+
+void _add_mat_to_PETSc_kron(Mat matrix, PetscScalar a, Mat mat_to_add, int n_before, int my_levels,
+                        op_type my_op_type, int position,
+                        int extra_before, int extra_after, int transpose)
+{
+  long i, i_op, j_op, n_after;
+  PetscScalar    val;
+  PetscScalar add_to_mat;
+  n_after    = total_levels/(my_levels*n_before);
+ 
+  for (i=0; i < my_levels; i++)
+  {
+    /*
+      * Since we store our operators as a type and number of levels
+      * calculate the actual i,j location for our operator,
+      * within its subspace, as well as its values.
+      */
+    val = _get_mat_val_in_subspace(i, mat_to_add, &i_op, &j_op);
+    if (val != 0.0)
+    {
+      add_to_mat = a*val;
+      if (transpose)
+      {
+        _add_to_PETSc_kron_ij(matrix, add_to_mat, j_op, i_op, n_before*extra_before, n_after*extra_after, my_levels);
+      } 
+      else 
+      {
+        _add_to_PETSc_kron_ij(matrix, add_to_mat, i_op, j_op, n_before*extra_before, n_after*extra_after, my_levels);
+      }
+    }
+  }
+  return;
+}
