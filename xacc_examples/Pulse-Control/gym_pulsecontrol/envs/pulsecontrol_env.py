@@ -55,7 +55,7 @@ class PulseEnv(gym.Env):
             plt.title(' X-Gate of Fidelity: ' + str(self.optimal_reward))
             plt.ylabel(r'$\Omega(t)$')
             plt.xlabel(' Time ')
-            plt.savefig(' Optimal_Slepian.png')
+            plt.savefig('Optimal_Slepian' + str(index) + '.png')
         done = bool((np.abs(1.0-reward) < 1e-4))
         next_state = np.copy(self._state)
         return np.array(next_state), reward, done, {}
