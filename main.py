@@ -54,6 +54,8 @@ env.channelConfig.dt = nbSamples / T
 env.channelConfig.loFregs_dChannels = [1.0]
 env.model.setChannelConfigs(env.channelConfig)
 
-drl_model = PPO2('MlpPolicy', env,  
+drl_model = PPO2('MlpPolicy', env,
+            learning_rate=0.0025,
              verbose=0)
-drl_model.learn(total_timesteps=50*n_orders)
+drl_model.learn(total_timesteps=10000)
+drl_model.save("Single_Qubit_Model")

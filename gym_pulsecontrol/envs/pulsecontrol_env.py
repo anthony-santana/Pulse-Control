@@ -5,6 +5,10 @@ import scipy as sp
 from gym import error, spaces, utils
 from gym.utils import seeding
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 class PulseEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -13,6 +17,8 @@ class PulseEnv(gym.Env):
         #self._state = np.zeros(self.slepians_matrix.shape[1]) 
         self.end_episode_rewards = []
         self.current_reward = []
+        self.optimal_pulse = []
+        self.optimal_reward = []
         self.index = 0
 
     def reward_function(self):
@@ -41,6 +47,15 @@ class PulseEnv(gym.Env):
         self.index += 1
         reward = self.reward_function()
         print("REWARD IS ", reward)
+        if reward >= 0.9999:
+            self.optimal_pulse = self.pulseData.copy()
+            self.optimal_reward = reward
+            print(self._state)
+            plt.plot(self.optimal_pulse)
+            plt.title(' X-Gate of Fidelity: ' + str(self.optimal_reward))
+            plt.ylabel(r'$\Omega(t)$')
+            plt.xlabel(' Time ')
+            plt.savefig('Optimal_Slepian' + str(index) + '.png')
         done = bool((np.abs(1.0-reward) < 1e-4))
         next_state = np.copy(self._state)
         return np.array(next_state), reward, done, {}
