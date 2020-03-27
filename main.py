@@ -1,4 +1,3 @@
-#%%
 import xacc
 import gym
 import spectrum
@@ -57,5 +56,5 @@ env.model.setChannelConfigs(env.channelConfig)
 drl_model = PPO2('MlpPolicy', env,
             learning_rate=0.0025,
              verbose=0)
-drl_model.learn(total_timesteps=10000)
+drl_model.learn(total_timesteps=500)
 drl_model.save("Single_Qubit_Model")

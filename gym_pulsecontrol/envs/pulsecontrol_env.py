@@ -56,6 +56,8 @@ class PulseEnv(gym.Env):
             plt.ylabel(r'$\Omega(t)$')
             plt.xlabel(' Time ')
             plt.savefig('Optimal_Slepian' + str(self.index) + '.png')
+            np.savetxt('optimal_pulse' + str(self.index)+ '.csv', self.optimal_pulse, delimiter=',')
+            exit()
         done = bool((np.abs(1.0-reward) < 1e-4))
         next_state = np.copy(self._state)
         return np.array(next_state), reward, done, {}
