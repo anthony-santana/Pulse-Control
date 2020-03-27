@@ -26,18 +26,27 @@ class PulseEnv(gym.Env):
         # Add that square pulse instruction to XACC
         pulseName = 'Slepian' + str(self.index)
         print(pulseName)
+        
         xacc.addPulse(pulseName, self.pulseData)   
+        # TODO: handle arbitrary number of qubit
+        # self.nbQubits contains this information
         q = xacc.qalloc(1)
         # Create the quantum program that contains the slepian pulse
         # and the drive channel (D0) is set on the instruction
         provider = xacc.getIRProvider('quantum')
         prog = provider.createComposite('pulse')
         slepianPulse = provider.createInstruction(pulseName, [0])
+        # TODO: need to handle multiple channels
+        # we have this information (based on the Hops array)
         slepianPulse.setChannel('d0')
         prog.addInstruction(slepianPulse)
+        # TODO: handle multiple qubits
         # Measure Q0 (using the number of shots that was specified above)
         prog.addInstruction(xacc.gate.create("Measure", [0]))
         self.qpu.execute(q, prog)
+        
+        # TODO: define a generic reward function based on the
+        # target unitary matrix (self.targetU) that is sent to here.
         return q.computeMeasurementProbability('1')
 
     def step(self, action):
