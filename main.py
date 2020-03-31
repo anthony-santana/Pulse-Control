@@ -59,4 +59,4 @@ drl_model = PPO2('MlpPolicy', env,
             learning_rate=0.0025,
              verbose=0)
 drl_model.learn(total_timesteps=500)
-drl_model.save("Single_Qubit_Model")
+drl_model.save("output_files/Single_Qubit_Model")
