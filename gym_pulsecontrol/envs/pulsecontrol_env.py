@@ -22,15 +22,16 @@ class PulseEnv(gym.Env):
         self.index = 0
 
     def reward_function(self):
+        # TODO: May have to shift these time_steps by 1 to be from [1,200] instead of [0,199]
+        time_steps = np.arange(self.nbSamples)
+        print(time_steps)
+        self.noise = [np.cos(0.0314159 * time_steps[i]) for i in range(self.nbSamples)]
         self.pulseData = (self._state * self.slepians_matrix).sum(axis=1)
-        # Add that square pulse instruction to XACC
+        # Add that slepian pulse instruction to XACC
         pulseName = 'Slepian' + str(self.index)
         print(pulseName)
-        
         xacc.addPulse(pulseName, self.pulseData)   
-        # TODO: handle arbitrary number of qubit
-        # self.nbQubits contains this information
-        q = xacc.qalloc(1)
+        q = xacc.qalloc(self.nbQubits)
         # Create the quantum program that contains the slepian pulse
         # and the drive channel (D0) is set on the instruction
         provider = xacc.getIRProvider('quantum')
@@ -44,7 +45,6 @@ class PulseEnv(gym.Env):
         # Measure Q0 (using the number of shots that was specified above)
         prog.addInstruction(xacc.gate.create("Measure", [0]))
         self.qpu.execute(q, prog)
-        
         # TODO: define a generic reward function based on the
         # target unitary matrix (self.targetU) that is sent to here.
         return q.computeMeasurementProbability('1')

@@ -27,6 +27,8 @@ gym.envs.register(
 env = gym.make('PulseControl-v0')
 env.slepians_matrix = Slepians.copy()
 env.n_orders = n_orders
+env.nbQubits = 1
+env.nbSamples = nbSamples
 
 hamiltonianJson = {
         "description": "Hamiltonian of a one-qubit system.\n",
