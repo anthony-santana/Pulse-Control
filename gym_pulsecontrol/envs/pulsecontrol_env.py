@@ -24,7 +24,6 @@ class PulseEnv(gym.Env):
     def reward_function(self):
         # TODO: May have to shift these time_steps by 1 to be from [1,200] instead of [0,199]
         time_steps = np.arange(self.nbSamples)
-        print(time_steps)
         self.noise = [np.cos(0.0314159 * time_steps[i]) for i in range(self.nbSamples)]
         self.pulseData = (self._state * self.slepians_matrix).sum(axis=1)
         # Add that slepian pulse instruction to XACC
