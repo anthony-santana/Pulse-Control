@@ -12,9 +12,9 @@ from stable_baselines import PPO2
 T = 100
 # Number of pulse samples
 nbSamples = 200
-W = 0.05
+W = 0.02 #0.05
 k = int(2 * nbSamples * W)
-n_orders = 15
+n_orders = 4 #15
 # Initialize Slepians
 Slepians, eigenvalues = spectrum.dpss(nbSamples, (nbSamples*W), k)
 Slepians = Slepians[:, 0:n_orders]

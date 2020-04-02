@@ -1,4 +1,5 @@
 import sys
+from numpy import genfromtxt
 from pathlib import Path
 sys.path.insert(1, str(Path.home()) + '/.xacc')
 import os
@@ -11,46 +12,40 @@ import matplotlib.pyplot as plt
 
 import spectrum
 
-# The Hamiltonian JSON object (OpenPulse format)
-# omega0 = 2*pi, rotation speed: 100ns -> pi pulse (assume dt = 1) 
 hamiltonianJson = {
-        "description": "Hamiltonian of a one-qubit system.\n",
-        "h_str": ["-0.5*omega0*Z0", "omegaa*X0||D0"],
-        "osc": {},
-        "qub": {
-            "0": 2
-        },
-        "vars": {
-            "omega0": 6.2831853,
-            "omegaa": 0.0314159
-        } 
+    "description": "One-qutrit Hamiltonian.",
+    "h_latex": "",
+    "h_str": ["(w - 0.5*alpha)*O0", "0.5*alpha*O0*O0", "O*(SM0 + SP0)||D0"],
+    "osc": {},
+    "qub": {
+        "0": 3
+    },
+    "vars": {
+        "w": 31.63772297724,
+        "alpha": -1.47969,
+        "O": 0.0314
+    }
 }
 
 # Total time, T, of control pulse
 T = 100
 # Number of pulse samples
 nbSamples = 200
-W = 0.05
-k = int(2 * nbSamples * W)
-n_orders = 15
-# Initialize Slepians
-Slepians, eigenvalues = spectrum.dpss(nbSamples, (nbSamples*W), k)
-Slepians = Slepians[:, 0:n_orders]
 
 model = xacc.createPulseModel()
 # Load the Hamiltonian JSON (string) to the system model
 loadResult = model.loadHamiltonianJson(json.dumps(hamiltonianJson))
-qpu = xacc.getAccelerator('QuaC', {'system-model': model.name(), 'shots': 1024 })
+qpu = xacc.getAccelerator('QuaC', {'system-model': model.name(), 'shots': 1024, 'logging-period': 0.1 })
 channelConfig = xacc.BackendChannelConfigs()
 # Setting resolution of pulse
 channelConfig.dt = nbSamples / T 
 # Driving on resonance with qubit
-channelConfig.loFregs_dChannels = [1.0]
+channelConfig.loFregs_dChannels = [5.0353]
 model.setChannelConfigs(channelConfig)
 
-weights = np.array([[-2.72625374, 0.17487545, 1.56643592, -3.73380211, 2.52358266, 3.38684644, -4.35706588, 3.63261847, -2.88180233, -3.87335379, -3.04824837,-0.13692838, 2.08190608, 0.30691899, -4.96701513]])
-
-pulseData = (weights * Slepians).sum(axis=1)
+time_steps = np.arange(nbSamples)
+noise_signal = [np.cos(1.47969 * time_steps[i]) for i in range(nbSamples)]
+pulseData = genfromtxt('output_files/optimal_pulse549.csv', delimiter=',') + noise_signal
 # Add that square pulse instruction to XACC
 pulseName = 'Slepian' 
 print(pulseName)
@@ -65,9 +60,10 @@ slepianPulse.setChannel('d0')
 prog.addInstruction(slepianPulse)
 # Measure Q0 (using the number of shots that was specified above)
 prog.addInstruction(xacc.gate.create("Measure", [0]))
-qpu.execute(q, prog)
 
 # Run the simulation
 qpu.execute(q, prog)
-resultProb = q.computeMeasurementProbability('1')
+resultProb = q['DensityMatrixDiags'][1]
 print(resultProb)
+
+# Do the state population vs. time graphs for a pulse optimized on a noiseless system and then look at how it handles the noisy system
