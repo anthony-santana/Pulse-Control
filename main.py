@@ -29,18 +29,21 @@ env.slepians_matrix = Slepians.copy()
 env.n_orders = n_orders
 env.nbQubits = 1
 env.nbSamples = nbSamples
+env.noise_frequency = 1.47969
 
 hamiltonianJson = {
-        "description": "Hamiltonian of a one-qubit system.\n",
-        "h_str": ["-0.5*omega0*Z0", "omegaa*X0||D0"],
-        "osc": {},
-        "qub": {
-            "0": 2
-        },
-        "vars": {
-            "omega0": 6.2831853,
-            "omegaa": 0.0314159
-        } 
+    "description": "One-qutrit Hamiltonian.",
+    "h_latex": "",
+    "h_str": ["(w - 0.5*alpha)*O0", "0.5*alpha*O0*O0", "O*(SM0 + SP0)||D0"],
+    "osc": {},
+    "qub": {
+        "0": 3
+    },
+    "vars": {
+        "w": 31.63772297724,
+        "alpha": -1.47969,
+        "O": 0.0314
+    }
 }
 
 # Create a pulse system model object 
@@ -51,12 +54,13 @@ env.qpu = xacc.getAccelerator('QuaC', {'system-model': env.model.name(), 'shots'
 env.channelConfig = xacc.BackendChannelConfigs()
 # Setting resolution of pulse
 env.channelConfig.dt = nbSamples / T 
-# Driving on resonance with qubit
-env.channelConfig.loFregs_dChannels = [1.0]
+# Drive at resonance: 31.63772297724/(2pi)    
+env.channelConfig.loFregs_dChannels = [5.0353]
 env.model.setChannelConfigs(env.channelConfig)
 
 drl_model = PPO2('MlpPolicy', env,
             learning_rate=0.0025,
+            n_steps=128,
              verbose=0)
-drl_model.learn(total_timesteps=500)
+drl_model.learn(total_timesteps=10000)
 drl_model.save("output_files/Single_Qubit_Model")

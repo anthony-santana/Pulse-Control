@@ -23,7 +23,7 @@ class PulseEnv(gym.Env):
 
     def reward_function(self):
         time_steps = np.arange(self.nbSamples)
-        self.noise = [np.cos(0.0314159 * time_steps[i]) for i in range(self.nbSamples)]
+        self.noise = [np.cos(self.noise_frequency * time_steps[i]) for i in range(self.nbSamples)]
         self.pulseData = (self._state * self.slepians_matrix).sum(axis=1) + self.noise
         # Add that slepian pulse instruction to XACC
         pulseName = 'Slepian' + str(self.index)
@@ -45,7 +45,7 @@ class PulseEnv(gym.Env):
         self.qpu.execute(q, prog)
         # TODO: define a generic reward function based on the
         # target unitary matrix (self.targetU) that is sent to here.
-        return q.computeMeasurementProbability('1')
+        return q['DensityMatrixDiags'][1]
 
     def step(self, action):
         a = action.copy()
