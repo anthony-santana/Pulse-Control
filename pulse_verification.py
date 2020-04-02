@@ -46,7 +46,7 @@ model.setChannelConfigs(channelConfig)
 time_steps = np.arange(nbSamples)
 noise_signal = [np.cos(1.47969 * time_steps[i]) for i in range(nbSamples)]
 pulseData = genfromtxt('output_files/optimal_pulse549.csv', delimiter=',') + noise_signal
-# Add that square pulse instruction to XACC
+# Add that slepian pulse instruction to XACC
 pulseName = 'Slepian' 
 print(pulseName)
 xacc.addPulse(pulseName, pulseData)   
