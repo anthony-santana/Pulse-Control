@@ -22,30 +22,7 @@ class PulseEnv(gym.Env):
         self.index = 0
 
     def reward_function(self):
-        #time_steps = np.arange(self.nbSamples)
-        #self.noise = [np.cos(self.noise_frequency * time_steps[i]) for i in range(self.nbSamples)]
-        self.pulseData = (self._state * self.slepians_matrix).sum(axis=1) #+ self.noise
-        # Add that slepian pulse instruction to XACC
-        pulseName = 'Slepian' + str(self.index)
-        print(pulseName)
-        xacc.addPulse(pulseName, self.pulseData)   
-        q = xacc.qalloc(self.nbQubits)
-        # Create the quantum program that contains the slepian pulse
-        # and the drive channel (D0) is set on the instruction
-        provider = xacc.getIRProvider('quantum')
-        prog = provider.createComposite('pulse')
-        slepianPulse = provider.createInstruction(pulseName, [0])
-        # TODO: need to handle multiple channels
-        # we have this information (based on the Hops array)
-        slepianPulse.setChannel('d0')
-        prog.addInstruction(slepianPulse)
-        # TODO: handle multiple qubits
-        # Measure Q0 (using the number of shots that was specified above)
-        prog.addInstruction(xacc.gate.create("Measure", [0]))
-        self.qpu.execute(q, prog)
-        # TODO: define a generic reward function based on the
-        # target unitary matrix (self.targetU) that is sent to here.
-        return q['DensityMatrixDiags'][1]
+        pass
 
     def step(self, action):
         a = action.copy()

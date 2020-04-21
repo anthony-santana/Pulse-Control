@@ -5,10 +5,8 @@ import json
 #import gym_pulsecontrol
 import numpy as np
 
-from types import MethodType
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
-
 
 # Total time, T, of control pulse
 T = 100
@@ -31,18 +29,21 @@ env.slepians_matrix = Slepians.copy()
 env.n_orders = n_orders
 env.nbQubits = 1
 env.nbSamples = nbSamples
+env.target_chi = [0., 0., 0., 0., 0., 2., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.] # X-Gate
 
 hamiltonianJson = {
-        "description": "Hamiltonian of a one-qubit system.\n",
-        "h_str": ["-0.5*omega0*Z0", "omegaa*X0||D0"],
-        "osc": {},
-        "qub": {
-            "0": 2
-        },
-        "vars": {
-            "omega0": 6.2831853,
-            "omegaa": 0.0314159
-        } 
+    "description": "One-qutrit Hamiltonian.",
+    "h_latex": "",
+    "h_str": ["(w - 0.5*alpha)*O0", "0.5*alpha*O0*O0", "O*(SM0 + SP0)||D0"],
+    "osc": {},
+    "qub": {
+        "0": 3
+    },
+    "vars": {
+        "w": 31.63772297724,
+        "alpha": -1.47969,
+        "O": 0.0314
+    }
 }
 
 # Create a pulse system model object 
@@ -52,10 +53,9 @@ loadResult = env.model.loadHamiltonianJson(json.dumps(hamiltonianJson))
 env.qpu = xacc.getAccelerator('QuaC', {'system-model': env.model.name(), 'shots': 1024 })
 env.channelConfig = xacc.BackendChannelConfigs()
 # Setting resolution of pulse
-env.channelConfig.dt = nbSamples / T   
-env.channelConfig.loFregs_dChannels = [1.0]
+env.channelConfig.dt = nbSamples / T    
+env.channelConfig.loFregs_dChannels = [5.0353]
 env.model.setChannelConfigs(env.channelConfig)
-env.target_chi = [0., 0., 0., 0., 0., 2., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.] # X-Gate
 
 def reward_function(self):
     # Create the pulse as weighted sum of Slepian orders

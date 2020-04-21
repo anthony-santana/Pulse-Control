@@ -52,30 +52,40 @@ delta = -0.1
 # for i in range(20):
 fidelity = np.zeros((20, 50))
 deltas = np.zeros(20)
-for i in range(20):
-    for j in range(50):
-        noise_signal = (1 + delta)
+
+#noise_signal = (1 + delta)
+    #* noise_signal
+
+#circuit = provider.createComposite('U') 
+#hadamard = provider.createInstruction('H', [0])
+#circuit.addInstruction(hadamard)
+
+#prog.addInstruction(xacc.gate.create("Measure", [0]))
+#qpu.execute(q, prog)
+
+for i in range(1):
+    for j in range(1):
         weights = np.array([-5., 1.65775359, 0.31740352, -3.74176682])
-        pulseData = (weights * Slepians).sum(axis=1) * noise_signal
-        # Add that slepian pulse instruction to XACC
+        pulseData = (weights * Slepians).sum(axis=1) 
         pulseName = 'Slepian' 
-        print(pulseName)
         xacc.addPulse(pulseName, pulseData)   
         q = xacc.qalloc(1)
-        # Create the quantum program that contains the slepian pulse
-        # and the drive channel (D0) is set on the instruction
         provider = xacc.getIRProvider('quantum')
         prog = provider.createComposite('pulse')
         slepianPulse = provider.createInstruction(pulseName, [0])
         slepianPulse.setChannel('d0')
         prog.addInstruction(slepianPulse)
-        # Measure Q0 (using the number of shots that was specified above)
-        prog.addInstruction(xacc.gate.create("Measure", [0]))
-        # Run the simulation
-        qpu.execute(q, prog)
-        resultProb = q.computeMeasurementProbability('1')
-        fidelity[i,j] = resultProb
-        print(resultProb)
+        qpt = xacc.getAlgorithm('qpt', {'circuit': prog, 'accelerator': qpu, 'optimize-circuit': False})
+        qpt.execute(q)
+        chi_real_vec = [0., 0., 0., 0., 
+                        0., 2., 0., 0., 
+                        0., 0., 0., 0.,
+                        0., 0., 0., 0.]
+        F = qpt.calculate('fidelity', q, {'chi-theoretical-real': chi_real_vec})
+        #F = qpt.calculate('fidelity', q, {'chi-theoretical-real':[0., 0., 0., 0., 0., 1., 0., 1., 0., 0., 0., 0., 0., 1., 0., 1.]})
+        print('\nFidelity: ', result)
+        #fidelity[i,j] = F
+        #print(resultProb)
     delta += 0.01
     deltas[i] = delta
 np.savetxt('fidelity_delta.csv', fidelity, delimiter=',')
