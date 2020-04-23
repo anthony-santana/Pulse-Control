@@ -13,7 +13,7 @@ class PulseEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self):
-        self._state = np.zeros(4)
+        self._state = np.zeros(5)
         #self._state = np.zeros(self.slepians_matrix.shape[1]) 
         self.end_episode_rewards = []
         self.current_reward = []
@@ -24,6 +24,15 @@ class PulseEnv(gym.Env):
     def reward_function(self):
         pass
 
+    def affine_transformation(self):
+        print('here!')
+        x = self._state[-1]
+        a = 0.0
+        b = 1.0
+        c = self.T_range[0]
+        d = self.T_range[1]
+        return ((x - a) * ((d - c) / (b - a))) + c
+
     def step(self, action):
         a = action.copy()
         self._state = self._state + a
@@ -31,7 +40,7 @@ class PulseEnv(gym.Env):
         self.index += 1
         reward = self.reward_function()
         print("REWARD IS ", reward)
-        if reward >= 0.97:
+        if reward >= 0.999:
             self.optimal_pulse = self.pulseData.copy()
             self.optimal_reward = reward
             print(self._state)
@@ -47,7 +56,8 @@ class PulseEnv(gym.Env):
         return np.array(next_state), reward, done, {}
 
     def reset(self):
-        self._state = np.zeros(self.slepians_matrix.shape[1])
+        #self._state = np.zeros(self.slepians_matrix.shape[1])
+        self._state = np.zeros(5)
         observation = np.copy(self._state)
         return observation
 
@@ -59,8 +69,8 @@ class PulseEnv(gym.Env):
 
     @property
     def action_space(self):
-        return spaces.Box(low=-0.25, high=0.25, shape=(4,))#shape=(self.n_orders,))
+        return spaces.Box(low=-0.25, high=0.25, shape=(5,))#shape=(self.n_orders+1,))
 
     @property
     def observation_space(self):
-        return spaces.Box(low=-5.0, high=5.0, shape=(4,))#shape=(self.n_orders,))
+        return spaces.Box(low=-5.0, high=5.0, shape=(5,))#shape=(self.n_orders+1,))

@@ -13,10 +13,10 @@ from stable_baselines import PPO2
 # Total time, T, of control pulse
 T = 100
 # Number of pulse samples
-nbSamples = 200
+nbSamples = 100
 W = 0.02 #0.05
 k = int(2 * nbSamples * W)
-n_orders = 4 #15
+n_orders = 6 #15
 # Initialize Slepians
 Slepians, eigenvalues = spectrum.dpss(nbSamples, (nbSamples*W), k)
 Slepians = Slepians[:, 0:n_orders]
@@ -31,6 +31,8 @@ env.slepians_matrix = Slepians.copy()
 env.n_orders = n_orders
 env.nbQubits = 1
 env.nbSamples = nbSamples
+env.T = 100 # Initializing to 100
+env.T_range = [50.0, 150.0] # Min and Max time range to optimize over
 
 hamiltonianJson = {
         "description": "Hamiltonian of a one-qubit system.\n",
@@ -52,14 +54,21 @@ loadResult = env.model.loadHamiltonianJson(json.dumps(hamiltonianJson))
 env.qpu = xacc.getAccelerator('QuaC', {'system-model': env.model.name(), 'shots': 1024 })
 env.channelConfig = xacc.BackendChannelConfigs()
 # Setting resolution of pulse
-env.channelConfig.dt = nbSamples / T   
+env.channelConfig.dt = nbSamples / env.T   
 env.channelConfig.loFregs_dChannels = [1.0]
 env.model.setChannelConfigs(env.channelConfig)
 env.target_chi = [0., 0., 0., 0., 0., 2., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.] # X-Gate
+#env.target_chi = [0., 0., 0., 0., 0., 1., 0., 1., 0., 0., 0., 0., 0., 1., 0., 1.] # Hadamard
 
 def reward_function(self):
+    # Running last index of state vector through affine transform to get T
+    self.T = self.affine_transformation()
+    # Changing dt on the backend
+    self.channelConfig.dt = nbSamples / self.T 
+    self.model.setChannelConfigs(self.channelConfig)
+    _state = self._state[:-1]
     # Create the pulse as weighted sum of Slepian orders
-    self.pulseData = (self._state * self.slepians_matrix).sum(axis=1)
+    self.pulseData = (_state * self.slepians_matrix).sum(axis=1)
     pulseName = 'Slepian' + str(self.index)
     print(pulseName)
     xacc.addPulse(pulseName, self.pulseData)   
@@ -73,9 +82,12 @@ def reward_function(self):
     # we have this information (based on the Hops array)
     slepianPulse.setChannel('d0')
     prog.addInstruction(slepianPulse)
-    qpt = xacc.getAlgorithm('qpt', {'circuit': prog, 'accelerator': self.qpu, 'optimize-circuit': False})
-    qpt.execute(q)
-    return qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
+    # TODO: DELETE THESE 2 LINES WHEN GOING BACK TO QPT
+    prog.addInstruction(xacc.gate.create("Measure", [0]))
+    self.qpu.execute(q, prog) 
+    #qpt = xacc.getAlgorithm('qpt', {'circuit': prog, 'accelerator': self.qpu, 'optimize-circuit': False})
+    #qpt.execute(q)
+    return q.computeMeasurementProbability('1') #qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
 # Passing reward function to the backend
 env.reward_function = MethodType(reward_function, env)
 
