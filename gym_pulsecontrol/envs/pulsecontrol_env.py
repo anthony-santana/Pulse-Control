@@ -25,10 +25,9 @@ class PulseEnv(gym.Env):
         pass
 
     def affine_transformation(self):
-        print('here!')
         x = self._state[-1]
-        a = 0.0
-        b = 1.0
+        a = -5.0
+        b = 5.0
         c = self.T_range[0]
         d = self.T_range[1]
         return ((x - a) * ((d - c) / (b - a))) + c
