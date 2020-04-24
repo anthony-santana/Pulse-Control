@@ -24,22 +24,22 @@ class PulseEnv(gym.Env):
 
     def reward_function(self):
         pass
-    
-    def affine_step(self):
-        x = self._state[-1]
-        a = -5.0 
-        b = 5.0
-        c = 50.0
-        d = 150.0
-        return ((x - a) * ((d - c) / (b - a))) + c
 
+    def affine_step(self):
+        x = self._state[-1]
+        a = -5.0
+        b = 5.0
+        c = 50.0
+        d = 150.0 
+        return ((x - a) * ((d - c) / (b - a))) + c
+    
     def affine_reward(self):
         x = self._state[-1]
-        a = -5.0 
-        b = 5.0
-        c = 0.0
-        d = 1.0
-        return ((x - a) * ((d - c) / (b - a))) + c
+        a = -5.0  
+        b = 5.0 
+        c = 0.0
+        d = 1.0
+        return ((x - a) * ((d - c) / (b - a))) + c
 
     def step(self, action):
         a = action.copy()
@@ -48,7 +48,7 @@ class PulseEnv(gym.Env):
         self.index += 1
         reward = self.reward_function()
         print("REWARD IS ", reward)
-        if reward >= 0.1: #0.999:
+        if reward >= 0.999:
             self.optimal_pulse = self.pulseData.copy()
             self.optimal_reward = reward
             self.optimal_time = self.affine_step()

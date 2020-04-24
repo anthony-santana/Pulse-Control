@@ -62,8 +62,7 @@ env.model.setChannelConfigs(env.channelConfig)
 
 def reward_function(self):
     # Running last index of state vector through affine transform to get T
-    self.new_range = [0.0, 1.0]
-    self.T = self.affine_reward()
+    self.T = self.affine_step()
     # Changing dt on the backend
     self.channelConfig.dt = nbSamples / self.T 
     self.model.setChannelConfigs(self.channelConfig)
@@ -88,7 +87,7 @@ def reward_function(self):
     self.qpu.execute(q, prog) 
     #qpt = xacc.getAlgorithm('qpt', {'circuit': prog, 'accelerator': self.qpu, 'optimize-circuit': False})
     #qpt.execute(q)
-    return self.T - q.computeMeasurementProbability('1') #qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
+    return self.affine_reward() - q.computeMeasurementProbability('1') #qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
 # Passing reward function to the backend
 env.reward_function = MethodType(reward_function, env)
 
