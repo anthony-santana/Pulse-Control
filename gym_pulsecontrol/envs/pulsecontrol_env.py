@@ -19,18 +19,27 @@ class PulseEnv(gym.Env):
         self.current_reward = []
         self.optimal_pulse = []
         self.optimal_reward = []
+        self.optimal_time = []
         self.index = 0
 
     def reward_function(self):
         pass
+    
+    def affine_step(self):
+        x = self._state[-1]
+        a = -5.0 
+        b = 5.0
+        c = 50.0
+        d = 150.0
+        return ((x - a) * ((d - c) / (b - a))) + c
 
-    def affine_transformation(self):
+    def affine_reward(self):
         x = self._state[-1]
-        a = -5.0
-        b = 5.0
-        c = self.T_range[0]
-        d = self.T_range[1]
-        return ((x - a) * ((d - c) / (b - a))) + c
+        a = -5.0 
+        b = 5.0
+        c = 0.0
+        d = 1.0
+        return ((x - a) * ((d - c) / (b - a))) + c
 
     def step(self, action):
         a = action.copy()
@@ -39,12 +48,13 @@ class PulseEnv(gym.Env):
         self.index += 1
         reward = self.reward_function()
         print("REWARD IS ", reward)
-        if reward >= 0.999:
+        if reward >= 0.1: #0.999:
             self.optimal_pulse = self.pulseData.copy()
             self.optimal_reward = reward
+            self.optimal_time = self.affine_step()
             print(self._state)
             plt.plot(self.optimal_pulse)
-            plt.title(' X-Gate of Fidelity: ' + str(self.optimal_reward))
+            plt.title(' X-Gate of Fidelity: ' + str(self.optimal_reward) + ' With T = ' + str(self.optimal_time))
             plt.ylabel(r'$\Omega(t)$')
             plt.xlabel(' Time ')
             plt.savefig('output_files/Optimal_Slepian' + str(self.index) + '.png')
