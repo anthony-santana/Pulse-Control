@@ -16,7 +16,7 @@ T = 100
 nbSamples = 100
 W = 0.02 #0.05
 k = int(2 * nbSamples * W)
-n_orders = 6 #15
+n_orders = 4 #15
 # Initialize Slepians
 Slepians, eigenvalues = spectrum.dpss(nbSamples, (nbSamples*W), k)
 Slepians = Slepians[:, 0:n_orders]
