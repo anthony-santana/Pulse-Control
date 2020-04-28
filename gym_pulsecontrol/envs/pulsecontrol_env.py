@@ -25,21 +25,13 @@ class PulseEnv(gym.Env):
     def reward_function(self):
         pass
 
-    def affine_step(self):
+    def affine_transform(self):
         x = self._state[-1]
         a = -5.0
         b = 5.0
         c = 50.0
-        d = 150.0 
-        return ((x - a) * ((d - c) / (b - a))) + c
-    
-    def affine_reward(self):
-        x = self._state[-1]
-        a = -5.0  
-        b = 5.0 
-        c = 0.0
-        d = 1.0
-        return ((x - a) * ((d - c) / (b - a))) + c
+        d = 200.0
+        return ((x-a) * ((d -c ) / (b - a))) + c
 
     def step(self, action):
         a = action.copy()
@@ -48,10 +40,11 @@ class PulseEnv(gym.Env):
         self.index += 1
         reward = self.reward_function()
         print("REWARD IS ", reward)
-        if reward >= 0.999:
+        #if reward >= 0.999:
+        if self.fidelity >= 0.999:
             self.optimal_pulse = self.pulseData.copy()
             self.optimal_reward = reward
-            self.optimal_time = self.affine_step()
+            self.optimal_time = self.T
             print(self._state)
             plt.plot(self.optimal_pulse)
             plt.title(' X-Gate of Fidelity: ' + str(self.optimal_reward) + ' With T = ' + str(self.optimal_time))
@@ -78,7 +71,7 @@ class PulseEnv(gym.Env):
 
     @property
     def action_space(self):
-        return spaces.Box(low=-0.25, high=0.25, shape=(5,))#shape=(self.n_orders+1,))
+        return spaces.Box(low=-1.0, high=1.0, shape=(5,))#shape=(self.n_orders+1,))
 
     @property
     def observation_space(self):

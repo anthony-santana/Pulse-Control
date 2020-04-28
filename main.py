@@ -32,7 +32,8 @@ env.n_orders = n_orders
 env.nbQubits = 1
 env.nbSamples = nbSamples
 env.T = 100 # Initializing to 100
-env.T_range = [50.0, 150.0] # Min and Max time range to optimize over
+env.T_range = [50.0, 200.0] # Min and Max time range to optimize over
+env.reward_bounds = [0.0, 200.0]
 
 hamiltonianJson = {
         "description": "Hamiltonian of a one-qubit system.\n",
@@ -62,7 +63,7 @@ env.model.setChannelConfigs(env.channelConfig)
 
 def reward_function(self):
     # Running last index of state vector through affine transform to get T
-    self.T = self.affine_step()
+    self.T = self.affine_transform()
     # Changing dt on the backend
     self.channelConfig.dt = nbSamples / self.T 
     self.model.setChannelConfigs(self.channelConfig)
@@ -87,13 +88,17 @@ def reward_function(self):
     self.qpu.execute(q, prog) 
     #qpt = xacc.getAlgorithm('qpt', {'circuit': prog, 'accelerator': self.qpu, 'optimize-circuit': False})
     #qpt.execute(q)
-    return self.affine_reward() - q.computeMeasurementProbability('1') #qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
+    self.fidelity = q.computeMeasurementProbability('1')
+    print('Time:', self.T)
+    print('Fidelity:', self.fidelity)
+    return  q.computeMeasurementProbability('1') - (self.T / self.reward_bounds[1])  #qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
 # Passing reward function to the backend
 env.reward_function = MethodType(reward_function, env)
 
 drl_model = PPO2('MlpPolicy', env,
             learning_rate=0.0025,
             n_steps=128,
-             verbose=0)
+             verbose=0,
+             n_cpu_tf_sess=1)
 drl_model.learn(total_timesteps=10000)
 drl_model.save("output_files/Single_Qubit_Model")
