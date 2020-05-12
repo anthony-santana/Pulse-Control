@@ -13,10 +13,10 @@ from stable_baselines import PPO2
 # Total time, T, of control pulse
 T = 100
 # Number of pulse samples
-nbSamples = 100
-W = 0.02 #0.05
+nbSamples = 200
+W = 0.02
 k = int(2 * nbSamples * W)
-n_orders = 4 #15
+n_orders = 4
 # Initialize Slepians
 Slepians, eigenvalues = spectrum.dpss(nbSamples, (nbSamples*W), k)
 Slepians = Slepians[:, 0:n_orders]
@@ -31,9 +31,9 @@ env.slepians_matrix = Slepians.copy()
 env.n_orders = n_orders
 env.nbQubits = 1
 env.nbSamples = nbSamples
-env.T = 100 # Initializing to 100
-env.T_range = [50.0, 200.0] # Min and Max time range to optimize over
-env.reward_bounds = [0.0, 200.0]
+env.T = T # Initializing to 100
+env.T_range = [10.0, 100.0] # Min and Max time range to optimize over
+env.reward_bounds = [10.0, 100.0]
 
 hamiltonianJson = {
         "description": "Hamiltonian of a one-qubit system.\n",
@@ -91,7 +91,8 @@ def reward_function(self):
     self.fidelity = q.computeMeasurementProbability('1')
     print('Time:', self.T)
     print('Fidelity:', self.fidelity)
-    return  q.computeMeasurementProbability('1') - (self.T / self.reward_bounds[1])  #qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
+    # Reward function of the form R = F + (1 - T)
+    return  (0.6 * q.computeMeasurementProbability('1')) + (0.4 * (1 - (self.T / self.reward_bounds[1])))  #qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
 # Passing reward function to the backend
 env.reward_function = MethodType(reward_function, env)
 

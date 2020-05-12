@@ -40,8 +40,8 @@ class PulseEnv(gym.Env):
         self.index += 1
         reward = self.reward_function()
         print("REWARD IS ", reward)
-        #if reward >= 0.999:
-        if self.fidelity >= 0.999:
+        if reward >= 0.9:
+        #if self.fidelity >= 0.999:
             self.optimal_pulse = self.pulseData.copy()
             self.optimal_reward = reward
             self.optimal_time = self.T
@@ -49,7 +49,7 @@ class PulseEnv(gym.Env):
             plt.plot(self.optimal_pulse)
             plt.title(' X-Gate of Fidelity: ' + str(self.optimal_reward) + ' With T = ' + str(self.optimal_time))
             plt.ylabel(r'$\Omega(t)$')
-            plt.xlabel(' Time ')
+            plt.xlabel(' Time Steps ')
             plt.savefig('output_files/Optimal_Slepian' + str(self.index) + '.png')
             np.savetxt('output_files/optimal_pulse' + str(self.index)+ '.csv', self.optimal_pulse, delimiter=',')
             exit()
@@ -71,7 +71,7 @@ class PulseEnv(gym.Env):
 
     @property
     def action_space(self):
-        return spaces.Box(low=-1.0, high=1.0, shape=(5,))#shape=(self.n_orders+1,))
+        return spaces.Box(low=-0.25, high=0.25, shape=(5,))#shape=(self.n_orders+1,))
 
     @property
     def observation_space(self):
