@@ -13,7 +13,7 @@ from stable_baselines import PPO2
 # Total time, T, of control pulse
 T = 100
 # Number of pulse samples
-nbSamples = 200
+nbSamples = 100
 W = 0.02
 k = int(2 * nbSamples * W)
 n_orders = 4
@@ -44,7 +44,8 @@ env.expectedDmImag = np.zeros(16)
 
 # Get the two-qubit backend (QuaC default):
 # This will load the default two-qubit backend:
-hamiltonianJson =   {
+'''
+{
     "description": "Two-qubit Hamiltonian",
     "h_str": ["_SUM[i,0,1,wq{i}*O{i}]", "_SUM[i,0,1,delta{i}*O{i}*(O{i}-I{i})]", "_SUM[i,0,1,omegad{i}*X{i}||D{i}]", "omegad1*X0||U0", "omegad0*X1||U1", "jq0q1*Sp0*Sm1", "jq0q1*Sm0*Sp1"],
     "osc": {},
@@ -62,12 +63,11 @@ hamiltonianJson =   {
         "jq0q1": 0.011749557 
     }
 }
+'''
 
 # Create a pulse system model object 
 env.model = xacc.createPulseModel()
-# Load the Hamiltonian JSON (string) to the system model
-loadResult = env.model.loadHamiltonianJson(json.dumps(hamiltonianJson))
-env.qpu = xacc.getAccelerator('QuaC:Default2Q', {'system-model': env.model.name(), 'shots': 1024 })
+env.qpu = xacc.getAccelerator('QuaC:Default2Q')
 env.channelConfig = xacc.BackendChannelConfigs()
 env.channelConfig.dt = nbSamples / env.T 
 env.model.setChannelConfigs(env.channelConfig)
@@ -85,7 +85,7 @@ def reward_function(self):
     print(pulseName)
     xacc.addPulse(pulseName, self.pulseData)   
     provider = xacc.getIRProvider('quantum')
-    prog = provider.createComposite('pulse')
+    prog = provider.createComposite('pulse_composite')
     slepianPulse = provider.createInstruction(pulseName, [0])
     slepianPulse.setChannel('d0')
     prog.addInstruction(slepianPulse)
@@ -96,8 +96,8 @@ def reward_function(self):
     fidelityResult = q["fidelity"]
     print("\nFidelity: {}".format(fidelityResult))
     return fidelityResult
-
 env.reward_function = MethodType(reward_function, env)
+
 drl_model = PPO2('MlpPolicy', env,
             learning_rate=0.0025,
             n_steps=128,
