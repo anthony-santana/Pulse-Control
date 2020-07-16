@@ -13,14 +13,6 @@ from types import MethodType
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
 
-T = (2 * np.pi)  
-nbSamples = 512
-W = 0.025
-k = int(2 * nbSamples * W)
-n_orders = 4
-# Initialize Slepians
-Slepians, eigenvalues = spectrum.dpss(nbSamples, (nbSamples*W), k)
-Slepians = Slepians[:, 0:n_orders]
 
 gym.envs.register(
      id='PulseControl-v0',
@@ -28,12 +20,13 @@ gym.envs.register(
 )
 
 env = gym.make('PulseControl-v0')
-env.slepians_matrix = Slepians.copy()
-env.n_orders = n_orders
 env.nbQubits = 2
-env.nbSamples = nbSamples
-env.T = T
-# Density Matrix for CNOT between q0 and q1
+env.nbSamples = 512
+env.T = 2 * np.pi
+env.in_bW = 0.025
+env.in_K = 5 # int(2 * env.nbSamples * env.in_bW)
+
+# Density Matrix for CNOT on |00>
 env.expectedDmReal = np.array([
     1, 0, 0, 0,
     0, 0, 0, 0,
@@ -42,20 +35,20 @@ env.expectedDmReal = np.array([
 ], dtype = np.float64)
 env.expectedDmImag = np.zeros(16)
 # Used for plot titles only:
-env.gate_name = ' CNOT-Gate'
+env.gate_name = 'X[q0], Ry[0.59, q1], CNOT'
 
 # Create a pulse system model object 
 env.model = xacc.createPulseModel()
 env.qpu = xacc.getAccelerator('QuaC:Default2Q')
 env.channelConfig = xacc.BackendChannelConfigs()
-env.channelConfig.dt = nbSamples / env.T 
+env.channelConfig.dt = env.nbSamples / env.T 
 env.model.setChannelConfigs(env.channelConfig)
 # Set control and target qubit to 0 -> initial state 00
 env.model.setQubitInitialPopulation(0, 0)
 
 def reward_function(self):
     # Create the pulse as weighted sum of Slepian orders
-    self.pulseData = (self._state * self.slepians_matrix).sum(axis=1)
+    self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
     pulseName = 'Slepian' + str(self.index)
     print(pulseName)
     xacc.addPulse(pulseName, self.pulseData)   
@@ -79,3 +72,11 @@ drl_model = PPO2('MlpPolicy', env,
              verbose=0,
              n_cpu_tf_sess=1)
 drl_model.learn(total_timesteps=10000)
+
+
+
+
+
+
+
+
