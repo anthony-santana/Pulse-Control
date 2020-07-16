@@ -13,7 +13,7 @@ from types import MethodType
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
 
-T = (2 * np.pi)  
+T = (2 * np.pi)
 nbSamples = 512
 W = 0.025
 k = int(2 * nbSamples * W)
@@ -35,10 +35,10 @@ env.nbSamples = nbSamples
 env.T = T
 # Density Matrix for {X[q0], Ry[0.59, q1], CNOT}
 env.expectedDmReal = np.array([
+    0.08452966, 0, 0.08452966, 0,
     0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0.08452966, 0.27818051,
-    0, 0, 0.27818051, 0.91547034
+    0.08452966, 0, 0.08452966, 0.,
+    0, 0, 0., 0.
 ], dtype = np.float64)
 env.expectedDmImag = np.zeros(16)
 
