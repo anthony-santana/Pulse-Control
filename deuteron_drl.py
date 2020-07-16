@@ -1,20 +1,21 @@
-import xacc
-import gym
+import sys, os, json, gym, numpy as np
+import gym_pulsecontrol
+
 import spectrum
-import json
-#import gym_pulsecontrol
-import numpy as np
+
+# Alternative to the following two lines is to run
+# from the IDE terminal: export PYTHONPATH=$PYTHONPATH:$HOME/.xacc
+from pathlib import Path
+sys.path.insert(1, str(Path.home()) + '/.xacc')
+import xacc
 
 from types import MethodType
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
 
-
-# Total time, T, of control pulse
-T = 100
-# Number of pulse samples
-nbSamples = 100
-W = 0.02
+T = (2 * np.pi)  
+nbSamples = 512
+W = 0.025
 k = int(2 * nbSamples * W)
 n_orders = 4
 # Initialize Slepians
@@ -32,13 +33,12 @@ env.n_orders = n_orders
 env.nbQubits = 2
 env.nbSamples = nbSamples
 env.T = T
-env.T_range = [10.0, 100.0]
-#env.reward_bounds = [10.0, 100.0]
+# Density Matrix for {X[q0], Ry[0.59, q1], CNOT}
 env.expectedDmReal = np.array([
     0, 0, 0, 0,
     0, 0, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 0
+    0, 0, 0.08452966, 0.27818051,
+    0, 0, 0.27818051, 0.91547034
 ], dtype = np.float64)
 env.expectedDmImag = np.zeros(16)
 
@@ -48,16 +48,12 @@ env.qpu = xacc.getAccelerator('QuaC:Default2Q')
 env.channelConfig = xacc.BackendChannelConfigs()
 env.channelConfig.dt = nbSamples / env.T 
 env.model.setChannelConfigs(env.channelConfig)
+# Set control and target qubit to 0 -> initial state 00
+env.model.setQubitInitialPopulation(0, 0)
 
 def reward_function(self):
-    # Running last index of state vector through affine transform to get T
-    self.T = self.affine_transform()
-    # Changing dt on the backend
-    self.channelConfig.dt = nbSamples / self.T 
-    self.model.setChannelConfigs(self.channelConfig)
-    _state = self._state[:-1]
     # Create the pulse as weighted sum of Slepian orders
-    self.pulseData = (_state * self.slepians_matrix).sum(axis=1)
+    self.pulseData = (self._state * self.slepians_matrix).sum(axis=1)
     pulseName = 'Slepian' + str(self.index)
     print(pulseName)
     xacc.addPulse(pulseName, self.pulseData)   
@@ -81,4 +77,3 @@ drl_model = PPO2('MlpPolicy', env,
              verbose=0,
              n_cpu_tf_sess=1)
 drl_model.learn(total_timesteps=10000)
-drl_model.save("output_files/Double_Qubit_Model")

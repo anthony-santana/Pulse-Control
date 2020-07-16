@@ -13,7 +13,7 @@ class PulseEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self):
-        self._state = np.zeros(5)
+        self._state = np.zeros(4)
         #self._state = np.zeros(self.slepians_matrix.shape[1]) 
         self.end_episode_rewards = []
         self.current_reward = []
@@ -40,14 +40,14 @@ class PulseEnv(gym.Env):
         self.index += 1
         reward = self.reward_function()
         print("REWARD IS ", reward)
-        if reward >= 0.9:
+        if reward >= 0.98:
         #if self.fidelity >= 0.999:
             self.optimal_pulse = self.pulseData.copy()
             self.optimal_reward = reward
             self.optimal_time = self.T
             print(self._state)
             plt.plot(self.optimal_pulse)
-            plt.title(' X-Gate of Fidelity: ' + str(self.optimal_reward) + ' With T = ' + str(self.optimal_time))
+            plt.title(self.gate_name + ' of Fidelity: ' + str(self.optimal_reward) + ' With T = ' + str(self.optimal_time))
             plt.ylabel(r'$\Omega(t)$')
             plt.xlabel(' Time Steps ')
             plt.savefig('output_files/Optimal_Slepian' + str(self.index) + '.png')
@@ -59,7 +59,7 @@ class PulseEnv(gym.Env):
 
     def reset(self):
         #self._state = np.zeros(self.slepians_matrix.shape[1])
-        self._state = np.zeros(5)
+        self._state = np.zeros(4)
         observation = np.copy(self._state)
         return observation
 
@@ -71,8 +71,8 @@ class PulseEnv(gym.Env):
 
     @property
     def action_space(self):
-        return spaces.Box(low=-0.25, high=0.25, shape=(5,))#shape=(self.n_orders+1,))
+        return spaces.Box(low=-0.25, high=0.25, shape=(4,))#shape=(self.n_orders+1,))
 
     @property
     def observation_space(self):
-        return spaces.Box(low=-5.0, high=5.0, shape=(5,))#shape=(self.n_orders+1,))
+        return spaces.Box(low=-5.0, high=5.0, shape=(4,))#shape=(self.n_orders+1,))
