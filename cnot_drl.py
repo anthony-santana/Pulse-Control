@@ -1,8 +1,6 @@
 import sys, os, json, gym, numpy as np
 import gym_pulsecontrol
 
-import spectrum
-
 # Alternative to the following two lines is to run
 # from the IDE terminal: export PYTHONPATH=$PYTHONPATH:$HOME/.xacc
 from pathlib import Path

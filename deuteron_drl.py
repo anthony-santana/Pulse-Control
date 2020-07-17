@@ -1,10 +1,6 @@
 import sys, os, json, gym, numpy as np
 import gym_pulsecontrol
 
-import spectrum
-
-# Alternative to the following two lines is to run
-# from the IDE terminal: export PYTHONPATH=$PYTHONPATH:$HOME/.xacc
 from pathlib import Path
 sys.path.insert(1, str(Path.home()) + '/.xacc')
 import xacc
@@ -15,8 +11,8 @@ from stable_baselines import PPO2
 
 
 gym.envs.register(
-     id='PulseControl-v0',
-     entry_point='gym_pulsecontrol.envs.pulsecontrol_env:PulseEnv',
+    id='PulseControl-v0',
+    entry_point='gym_pulsecontrol.envs.pulsecontrol_env:PulseEnv',
 )
 
 env = gym.make('PulseControl-v0')
@@ -25,6 +21,7 @@ env.nbSamples = 512
 env.T = (2 * np.pi) + 100
 env.in_bW = 0.025
 env.in_K = 5 # int(2 * env.nbSamples * env.in_bW)
+env.initialize()
 
 # Density Matrix for {X[q0], Ry[0.59, q1], CNOT}
 env.expectedDmReal = np.array([
