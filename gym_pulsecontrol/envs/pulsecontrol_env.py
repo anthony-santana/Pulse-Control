@@ -47,7 +47,7 @@ class PulseEnv(gym.Env):
             self.optimal_time = self.T
             print(self._state)
             plt.plot(self.optimal_pulse)
-            plt.title(self.gate_name + ' of Fidelity: ' + str(self.optimal_reward) + ' With T = ' + str(self.optimal_time))
+            plt.title(self.gate_name + ' of Fidelity: ' + str(self.optimal_reward)[0:7] + ' With T = ' + str(self.optimal_time)[0:6])
             plt.ylabel(r'$\Omega(t)$')
             plt.xlabel(' Time Steps ')
             plt.savefig('output_files/Optimal_Slepian' + str(self.index) + '.png')
