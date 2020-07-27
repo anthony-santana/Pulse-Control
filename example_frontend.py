@@ -6,9 +6,9 @@ nbQubits = 2
 nbSamples = 512
 in_bW = 0.025
 in_K = int(2 * nbSamples * in_bW)
-T = 2 * np.pi
+T = 600
 
-# Density Matrix for {CNOT}:
+# Density Matrix for {CNOT} from |00>:
 expectedDmReal = np.array([
     1, 0, 0, 0,
     0, 0, 0, 0,
@@ -26,6 +26,7 @@ ppo = xacc_drl.OptimalControl(
     'expectedDmReal': expectedDmReal,
     'expectedDmImag': expectedDmImag,
     'gate_name': gate_name,
+    'initial_state': [0, 0]
     }
 )
 

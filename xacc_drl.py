@@ -9,6 +9,8 @@ from types import MethodType
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
 
+from reward_functions import RewardFunctions
+
 class OptimalControl:
 
     def __init__(self, options):
@@ -25,29 +27,27 @@ class OptimalControl:
         self.env.gate_operation = options['gate_operation'] if 'gate_operation' in options else 'Gate'
         self.env.expectedDmReal = options['expectedDmReal'] if 'expectedDmReal' in options else None
         self.env.expectedDmImag = options['expectedDmImag'] if 'expectedDmImag' in options else None
+        self.env.initial_state = options['initial_state'] if 'initial_state' in options else [0, 0]
+        self.env.qpt = options['qpt'] if 'qpt' in options else None
+        self.env.qutrit = options['qutrit'] if 'qutrit' in options else False
+        if self.env.qutrit == True:
+            self.env.reward_name = 'reward_function_' + str(options['nbQubits']) + 'q_' + 'qutrit_' + str(self.env.qpt)
+        else:
+            self.env.reward_name = 'reward_function_' + str(options['nbQubits']) + 'q_' + str(self.env.qpt)
         self.env.initialize()
-    
-    # Use a hardcoded reward function for now, but the eventual step will be to add a repository of
-    # reward functions that users can select from
-    # Eventually, make it so that they can create their own custom reward functions
-    def reward_function(self):
-        # Create the pulse as weighted sum of Slepian orders
-        self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
-        pulseName = 'Slepian' + str(self.index)
-        print(pulseName)
-        xacc.addPulse(pulseName, self.pulseData)   
-        provider = xacc.getIRProvider('quantum')
-        prog = provider.createComposite('pulse_composite')
-        slepianPulse = provider.createInstruction(pulseName, [0])
-        slepianPulse.setChannel('d0')
-        prog.addInstruction(slepianPulse)
-        q = xacc.qalloc(self.nbQubits)
-        q.addExtraInfo("target-dm-real", self.expectedDmReal)
-        q.addExtraInfo("target-dm-imag", self.expectedDmImag)
-        self.qpu.execute(q, prog)
-        fidelityResult = q["fidelity"]
-        print("\nFidelity: {}".format(fidelityResult))
-        return fidelityResult
+
+        # Parameters for PPO
+        self.learning_rate = options['learning_rate'] if 'learning_rate' in options else 0.0025
+        self.nsteps = options['nsteps'] if 'nsteps' in options else 128
+        self.gamma = options['gamma'] if 'gamma' in options else 0.99
+        self.ent_coef = options['ent_coef'] if 'ent_coef' in options else 0.01
+        self.vf_coef = options['vf_coef'] if 'vf_coef' in options else 0.5
+        self.max_grad_norm = options['max_grad_norm'] if 'max_grad_norm' in options else 0.5
+        self.lam = options['lam'] if 'lam' in options else 0.95
+        self.nminibatches = options['nminibatches'] if 'nminibatches' in options else 4
+        self.noptepochs = options['noptepochs'] if 'noptepochs' in options else 4
+        self.cliprange = options['cliprange'] if 'cliprange' in options else 0.2
+        self.cliprange_vf = options['cliprange_vf'] if 'cliprange_vf' in options else None
 
     def execute(self):
         # Create a pulse system model object 
@@ -57,14 +57,25 @@ class OptimalControl:
         self.env.channelConfig.dt = self.env.nbSamples / self.env.T 
         self.env.model.setChannelConfigs(self.env.channelConfig)
         # Set control and target qubit to 0 -> initial state 00
-        self.env.model.setQubitInitialPopulation(0, 0)
-
+        self.env.model.setQubitInitialPopulation(self.env.initial_state[0], self.env.initial_state[1])
+        
+        #reward_name = self.env.reward_name
+        self.reward_function = RewardFunctions.reward_function_2q_False
         self.env.reward_function = MethodType(self.reward_function, self.env)
 
         drl_model = PPO2('MlpPolicy', 
                     self.env,
-                    learning_rate=0.0025,
-                    n_steps=128,
+                    gamma = self.gamma,
+                    learning_rate = self.learning_rate,
+                    ent_coef = self.ent_coef,
+                    vf_coef = self.vf_coef,
+                    n_steps = self.nsteps,
+                    max_grad_norm = self.max_grad_norm,
+                    lam = self.lam,
+                    nminibatches = self.nminibatches,
+                    noptepochs = self.noptepochs,
+                    cliprange = self.cliprange,
+                    cliprange_vf = self.cliprange_vf,
                     verbose=0,
                     n_cpu_tf_sess=1)
         drl_model.learn(total_timesteps=10000)

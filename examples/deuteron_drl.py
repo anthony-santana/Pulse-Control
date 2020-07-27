@@ -18,30 +18,32 @@ gym.envs.register(
 env = gym.make('PulseControl-v0')
 env.nbQubits = 2
 env.nbSamples = 512
-env.T = (2 * np.pi) + 100
-env.in_bW = 0.025
+env.T = 60 + 60 + 500
+env.in_bW = 0.02
 env.in_K = 5 # int(2 * env.nbSamples * env.in_bW)
 env.initialize()
 
 # Density Matrix for {X[q0], Ry[0.59, q1], CNOT}
 env.expectedDmReal = np.array([
-    0.08452966, 0, 0.08452966, 0,
     0, 0, 0, 0,
-    0.08452966, 0, 0.08452966, 0.,
-    0, 0, 0., 0.
+    0, 0, 0, 0, 
+    0, 0, 0.91547034, -0.27818051,
+    0, 0, -0.27818051, 0.08452966
 ], dtype = np.float64)
 env.expectedDmImag = np.zeros(16)
 # Used for plot titles only:
-env.gate_name = 'X[q0], Ry[0.59, q1], CNOT'
+env.gate_operation = 'X[q0], Ry[0.59, q1], CNOT'
 
 # Create a pulse system model object 
 env.model = xacc.createPulseModel()
 env.qpu = xacc.getAccelerator('QuaC:Default2Q')
 env.channelConfig = xacc.BackendChannelConfigs()
 env.channelConfig.dt = env.nbSamples / env.T 
+#env.channelConfig.loFregs_dChannels = [np.pi/2]
 env.model.setChannelConfigs(env.channelConfig)
 # Set control and target qubit to 0 -> initial state 00
-env.model.setQubitInitialPopulation(0, 0)
+env.model.setQubitInitialPopulation(0, 0.)
+
 
 def reward_function(self):
     # Create the pulse as weighted sum of Slepian orders
@@ -64,13 +66,14 @@ def reward_function(self):
 env.reward_function = MethodType(reward_function, env)
 
 drl_model = PPO2('MlpPolicy', env,
-            learning_rate=0.0025,
-            n_steps=128,
-             verbose=0,
-             n_cpu_tf_sess=1)
+            ent_coef=0.0025,
+            vf_coef = 1.0,
+            cliprange=0.1,
+            learning_rate=0.025,
+            n_steps=4,
+            verbose=0,
+            n_cpu_tf_sess=1)
 drl_model.learn(total_timesteps=10000)
-
-
 
 
 

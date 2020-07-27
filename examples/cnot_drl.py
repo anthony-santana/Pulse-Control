@@ -20,9 +20,10 @@ gym.envs.register(
 env = gym.make('PulseControl-v0')
 env.nbQubits = 2
 env.nbSamples = 512
-env.T = 2 * np.pi
-env.in_bW = 0.025
-env.in_K = 5 # int(2 * env.nbSamples * env.in_bW)
+env.T = 600
+env.in_bW = 0.02
+env.in_K = 5    # int(2 * env.nbSamples * env.in_bW)
+env.initialize()
 
 # Density Matrix for CNOT on |00>
 env.expectedDmReal = np.array([
@@ -33,7 +34,7 @@ env.expectedDmReal = np.array([
 ], dtype = np.float64)
 env.expectedDmImag = np.zeros(16)
 # Used for plot titles only:
-env.gate_name = 'X[q0], Ry[0.59, q1], CNOT'
+env.gate_operation = 'CNOT'
 
 # Create a pulse system model object 
 env.model = xacc.createPulseModel()
@@ -41,11 +42,10 @@ env.qpu = xacc.getAccelerator('QuaC:Default2Q')
 env.channelConfig = xacc.BackendChannelConfigs()
 env.channelConfig.dt = env.nbSamples / env.T 
 env.model.setChannelConfigs(env.channelConfig)
-# Set control and target qubit to 0 -> initial state 00
-env.model.setQubitInitialPopulation(0, 0)
+# Set control and target qubit to 0 -> initial state 01
+env.model.setQubitInitialPopulation(0, 1.)
 
 def reward_function(self):
-    # Create the pulse as weighted sum of Slepian orders
     self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
     pulseName = 'Slepian' + str(self.index)
     print(pulseName)
