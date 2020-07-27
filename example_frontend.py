@@ -17,7 +17,7 @@ expectedDmReal = np.array([
 ], dtype = np.float64)
 expectedDmImag = np.zeros(16)
 # Used for plot titles only:
-gate_name = 'X[q0], Ry[0.59, q1], CNOT'
+gate_operation = 'X[q0], Ry[0.59, q1], CNOT'
 
 ppo = xacc_drl.OptimalControl(
     {
@@ -25,7 +25,7 @@ ppo = xacc_drl.OptimalControl(
     'slepian_parameters': [nbSamples, in_bW, in_K, T],
     'expectedDmReal': expectedDmReal,
     'expectedDmImag': expectedDmImag,
-    'gate_name': gate_name,
+    'gate_operation': gate_operation,
     'initial_state': [0, 0]
     }
 )
