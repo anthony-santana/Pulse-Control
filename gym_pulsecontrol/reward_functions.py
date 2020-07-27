@@ -11,13 +11,11 @@ from stable_baselines import PPO2
 
 class RewardFunctions:
 
-    # if nbQubits == 1
-    def reward_function_1q_False(self):
+    def one_qubit(self):
 
         '''
         Single qubit reward function. Just returns the population of the first excited state. 
-        Only works for full rotations around X-axis. The 'False' is just a naming convention
-        to indicate no Quantum Process Tomography is done.
+        Only works for full rotations around X-axis.
         '''
 
         self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
@@ -36,8 +34,8 @@ class RewardFunctions:
         print("\nFidelity: {}".format(fidelityResult))
         return  q.computeMeasurementProbability('1')
 
-    # if qutrit == True && qpt = False
-    def reward_function_1q_qutrit_False(self):
+
+    def one_qutrit(self):
 
         '''
         Single qutrit reward function without Quantum Process Tomography. 
@@ -63,8 +61,8 @@ class RewardFunctions:
         print("\nLeakgge: {}".format(leakage))
         return fidelityResult
 
-    # if qutrit && qpt == True:
-    def reward_function_1q_qutrit_True(self):
+    
+    def one_qutrit_qpt(self):
 
         '''
         Single qutrit reward function that uses Quantum Process Tomography to calculate fidelity. 
@@ -85,13 +83,12 @@ class RewardFunctions:
         qpt.execute(q)
         return qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
 
-    # if nbQubits == 2
-    def reward_function_2q_False(self):
+    
+    def two_qubit(self):
 
         '''
         Two qubit reward function. Returns overlap between target density matrix 
-        and the actual calcualted density matrix. The 'False' is just a naming convention
-        to indicate no Quantum Process Tomography is done.
+        and the actual calcualted density matrix.
         '''
 
         # Create the pulse as weighted sum of Slepian orders

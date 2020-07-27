@@ -1,5 +1,11 @@
 import sys, os, json, gym, numpy as np
+
+sys.path.insert(1, '/home/cades/dev/Pulse_Control/')
 import gym_pulsecontrol
+
+sys.path.insert(1, '/home/cades/dev/Pulse_Control/gym_pulsecontrol')
+from reward_functions import RewardFunctions 
+from quac_backends import Backends
 
 from pathlib import Path
 sys.path.insert(1, str(Path.home()) + '/.xacc')
@@ -8,8 +14,6 @@ import xacc
 from types import MethodType
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
-
-from reward_functions import RewardFunctions
 
 class OptimalControl:
 
@@ -27,16 +31,16 @@ class OptimalControl:
         self.env.gate_operation = options['gate_operation'] if 'gate_operation' in options else 'Gate'
         self.env.expectedDmReal = options['expectedDmReal'] if 'expectedDmReal' in options else None
         self.env.expectedDmImag = options['expectedDmImag'] if 'expectedDmImag' in options else None
-        self.env.initial_state = options['initial_state'] if 'initial_state' in options else [0, 0]
+        self.env.initial_state = options['initial_state'] if 'initial_state' in options else 0
         self.env.qpt = options['qpt'] if 'qpt' in options else None
         self.env.qutrit = options['qutrit'] if 'qutrit' in options else False
-        if self.env.qutrit == True:
-            self.env.reward_name = 'reward_function_' + str(options['nbQubits']) + 'q_' + 'qutrit_' + str(self.env.qpt)
+        if self.env.qpt == True:
+            self.env.reward_name = options['backend'] + '_qpt'
         else:
-            self.env.reward_name = 'reward_function_' + str(options['nbQubits']) + 'q_' + str(self.env.qpt)
+            self.env.reward_name = options['backend']
         self.env.initialize()
 
-        # Parameters for PPO
+        # Parameters for PPO. The defaults are just the defaults from the stable_baselines backend.
         self.learning_rate = options['learning_rate'] if 'learning_rate' in options else 0.0025
         self.nsteps = options['nsteps'] if 'nsteps' in options else 128
         self.gamma = options['gamma'] if 'gamma' in options else 0.99
@@ -49,20 +53,26 @@ class OptimalControl:
         self.cliprange = options['cliprange'] if 'cliprange' in options else 0.2
         self.cliprange_vf = options['cliprange_vf'] if 'cliprange_vf' in options else None
 
+
     def execute(self):
         # Create a pulse system model object 
         self.env.model = xacc.createPulseModel()
-        self.env.qpu = xacc.getAccelerator('QuaC:Default2Q')
-        self.env.channelConfig = xacc.BackendChannelConfigs()
-        self.env.channelConfig.dt = self.env.nbSamples / self.env.T 
-        self.env.model.setChannelConfigs(self.env.channelConfig)
-        # Set control and target qubit to 0 -> initial state 00
-        self.env.model.setQubitInitialPopulation(self.env.initial_state[0], self.env.initial_state[1])
-        
-        #reward_name = self.env.reward_name
-        self.reward_function = RewardFunctions.reward_function_2q_False
-        self.env.reward_function = MethodType(self.reward_function, self.env)
 
+        if self.env.reward_name == 'one_qubit':
+            self.env.qpu = Backends.one_qubit(self)
+            self.reward_function = RewardFunctions.one_qubit
+        elif self.env.reward_name == 'one_qutrit':
+            self.env.qpu = Backends.one_qutrit(self)
+            self.reward_function = RewardFunctions.one_qutrit
+        elif self.env.reward_name == 'one_qutrit_qpt':
+            self.env.qpu = Backends.one_qutrit_qpt(self)
+            self.reward_function = RewardFunctions.one_qutrit_qpt
+        elif self.env.reward_name == 'two_qubit':
+            self.env.qpu = Backends.two_qubit(self)
+            self.reward_function = RewardFunctions.two_qubit
+
+        self.env.reward_function = MethodType(self.reward_function, self.env)
+    
         drl_model = PPO2('MlpPolicy', 
                     self.env,
                     gamma = self.gamma,
@@ -79,3 +89,4 @@ class OptimalControl:
                     verbose=0,
                     n_cpu_tf_sess=1)
         drl_model.learn(total_timesteps=10000)
+        drl_model.save("/home/cades/dev/Pulse_Control/output_files/")

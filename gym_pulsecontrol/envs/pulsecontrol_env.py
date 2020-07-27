@@ -52,7 +52,7 @@ class PulseEnv(gym.Env):
         reward = self.reward_function()
         print("REWARD IS ", reward)
         print("alpha = ", self._state)
-        if reward >= 0.99:
+        if reward >= 0.9999:
             self.optimal_pulse = self.pulseData.copy()
             self.optimal_reward = reward
             self.optimal_time = self.T
@@ -61,8 +61,8 @@ class PulseEnv(gym.Env):
             plt.title(self.gate_operation + ' of Fidelity: ' + str(self.optimal_reward)[0:7] + ' With T = ' + str(self.optimal_time)[0:6])
             plt.ylabel(r'$\Omega(t)$')
             plt.xlabel(' Time Steps ')
-            plt.savefig('output_files/Optimal_Slepian' + str(self.index) + '.png')
-            np.savetxt('output_files/optimal_pulse' + str(self.index)+ '.csv', self.optimal_pulse, delimiter=',')
+            plt.savefig('/home/cades/dev/Pulse_Control/output_files/Optimal_Slepian' + str(self.index) + '.png')
+            np.savetxt('/home/cades/dev/Pulse_Control/output_files/optimal_pulse' + str(self.index)+ '.csv', self.optimal_pulse, delimiter=',')
             exit()
         done = bool((np.abs(1.0-reward) < 1e-4))
         next_state = np.copy(self._state)
