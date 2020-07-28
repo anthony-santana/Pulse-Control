@@ -27,30 +27,13 @@ class PulseEnv(gym.Env):
     def reward_function(self):
         pass
 
-    def set_time(self):
-        x = self._state[-1]
-        a = -5.0
-        b = 5.0
-        c = self.T_range[0]
-        d = self.T_range[1]
-        return ((x-a) * ((d -c ) / (b - a))) + c
-
-    
-    #def set_phase(self):
-    #    x = self._state[-1]
-    #    a = -5.0
-    #    b = 5.0
-    #    c = 0.0
-    #    d = 2 * np.pi
-    #    return ((x-a) * ((d -c ) / (b - a))) + c
-
     def step(self, action):
         a = action.copy()
         self._state = self._state + a
         self._state = np.clip(self._state, self.observation_space.low, self.observation_space.high)
         self.index += 1
         reward = self.reward_function()
-        print("REWARD IS ", reward)
+        # print("REWARD IS ", reward)
         print("alpha = ", self._state)
         if reward >= 0.9999:
             self.optimal_pulse = self.pulseData.copy()
@@ -82,9 +65,10 @@ class PulseEnv(gym.Env):
 
     @property
     def action_space(self):
-        #return spaces.Box(low=-0.25, high=0.25, shape=(self.in_K,)) 
-        return spaces.Box(low=-1.0, high=1.0, shape=(self.in_K,)) 
+        # return spaces.Box(low = self.action_range[0], high = self.action_range[1], shape=(self.in_K,))
+        return spaces.Box(low = -0.25, high = 0.25, shape=(self.in_K,)) 
 
     @property
     def observation_space(self):
-        return spaces.Box(low=-5.0, high=5.0, shape=(self.in_K,)) 
+        # return spaces.Box(low = self.observation_range[0], high = self.observation_range[1], shape=(self.in_K,))
+        return spaces.Box(low = -5.0, high = 5.0, shape=(self.in_K,))

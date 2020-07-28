@@ -7,15 +7,15 @@ import numpy as np
 nbQubits = 2
 nbSamples = 512
 in_bW = 0.02
-in_K = 5 # int(2 * env.nbSamples * env.in_bW)
-T = 60 + 60 + 500
+in_K = int(2 * nbSamples * in_bW)
+T = 130 + 130 + 650
 
 # Density Matrix for {X[q0], Ry[0.59, q1], CNOT}
 expectedDmReal = np.array([
     0, 0, 0, 0,
-    0, 0, 0, 0, 
-    0, 0, 0.91547034, -0.27818051,
-    0, 0, -0.27818051, 0.08452966
+    0, 0.08572349, 0.27995531, 0, 
+    0, 0.27995531, 0.91427651, 0,
+    0, 0, 0, 0
 ], dtype = np.float64)
 expectedDmImag = np.zeros(16)
 # Used for plot titles only:

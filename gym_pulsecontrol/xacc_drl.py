@@ -38,8 +38,9 @@ class OptimalControl:
             self.env.reward_name = options['backend'] + '_qpt'
         else:
             self.env.reward_name = options['backend']
-        self.env.initialize()
 
+        self.env.initialize()
+        
         # Parameters for PPO. The defaults are just the defaults from the stable_baselines backend.
         self.learning_rate = options['learning_rate'] if 'learning_rate' in options else 0.0025
         self.nsteps = options['nsteps'] if 'nsteps' in options else 128
@@ -52,7 +53,9 @@ class OptimalControl:
         self.noptepochs = options['noptepochs'] if 'noptepochs' in options else 4
         self.cliprange = options['cliprange'] if 'cliprange' in options else 0.2
         self.cliprange_vf = options['cliprange_vf'] if 'cliprange_vf' in options else None
-
+        self.action_range = options['action_range'] if 'action_range' in options else [-0.25, 0.25]
+        self.observation_range = options['observation_range'] if 'observation_range' in options else [-5.0, 5.0]
+        
 
     def execute(self):
         # Create a pulse system model object 
@@ -70,7 +73,7 @@ class OptimalControl:
         elif self.env.reward_name == 'two_qubit':
             self.env.qpu = Backends.two_qubit(self)
             self.reward_function = RewardFunctions.two_qubit
-
+        # Pass the appropriate reward function to pulsecontrol_env:
         self.env.reward_function = MethodType(self.reward_function, self.env)
     
         drl_model = PPO2('MlpPolicy', 

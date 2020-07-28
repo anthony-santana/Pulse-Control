@@ -88,7 +88,7 @@ class RewardFunctions:
 
         '''
         Two qubit reward function. Returns overlap between target density matrix 
-        and the actual calcualted density matrix.
+        and the actual calculated density matrix.
         '''
 
         # Create the pulse as weighted sum of Slepian orders

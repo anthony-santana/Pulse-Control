@@ -1,12 +1,12 @@
 # Pulse Control 
 
-Pulse Control is a repository for developing optimized quantum controls out of Discrete Prolate Spheroidal Sequences,
-through the use of the Deep Reinforcement Learning algorithm, Proximal Policy Optimization.
+Pulse Control is a repository for developing optimized quantum controls out of Discrete Prolate Spheroidal Sequences.
+This is accomplished through the use of the Deep Reinforcement Learning algorithm, Proximal Policy Optimization.
 
 ## Using this repository
 
-This repository is built as an extension of Oak Ridge National Laboratory's open-source quantum framwork, XACC. 
-It leverages XACC's pulse-level control functionality 
+This repository is built as an extension of Oak Ridge National Laboratory's open-source quantum framwork, XACC [LINK]. 
+It leverages XACC's pulse-level control functionality ... 
 
 ## Quick Start with Docker
 
@@ -25,6 +25,5 @@ experiments, ensuring to prepend each file with:
 import sys
 sys.path.insert(1, '/home/cades/dev/Pulse_Control/gym_pulsecontrol/')
 import xacc_drl
-import numpy as np
 
 ```
