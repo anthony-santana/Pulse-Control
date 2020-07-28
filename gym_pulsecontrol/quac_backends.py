@@ -50,7 +50,7 @@ class Backends:
         return xacc.getAccelerator('QuaC', {'system-model': self.env.model.name(), 'shots': 1024})
 
     def two_qubit(self):
-        # Set control and target qubit to 0 -> initial state 00
+        # Set control and target qubit to user-specified initial states (default |00>)
         self.env.model.setQubitInitialPopulation(self.env.initial_state[0], self.env.initial_state[1])
         self.env.channelConfig = xacc.BackendChannelConfigs()
         self.env.channelConfig.dt = self.env.nbSamples / self.env.T 

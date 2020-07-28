@@ -6,7 +6,7 @@ This is accomplished through the use of the Deep Reinforcement Learning algorith
 ## Using this repository
 
 This repository is built as an extension of Oak Ridge National Laboratory's open-source quantum framwork, XACC [LINK]. 
-It leverages XACC's pulse-level control functionality ... 
+It leverages XACC's pulse-level control functionality as a hardware simulator for use in constructing optimized pulses.
 
 ## Quick Start with Docker
 

@@ -76,6 +76,7 @@ class OptimalControl:
         # Pass the appropriate reward function to pulsecontrol_env:
         self.env.reward_function = MethodType(self.reward_function, self.env)
     
+        # Calling the PPO algorithm from stable_baselines
         drl_model = PPO2('MlpPolicy', 
                     self.env,
                     gamma = self.gamma,
