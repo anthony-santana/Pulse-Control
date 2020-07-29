@@ -5,7 +5,7 @@ import xacc
 
 class Backends:
 
-    def one_qubit(self):
+    def one_qubit_backend(self):
         hamiltonianJson = {
             "description": "Hamiltonian of a one-qubit system.\n",
             "h_str": ["-0.5*omega0*Z0", "omegaa*X0||D0"],
@@ -22,11 +22,12 @@ class Backends:
         self.env.loadResult = self.env.model.loadHamiltonianJson(json.dumps(hamiltonianJson))
         self.env.channelConfig = xacc.BackendChannelConfigs()
         self.env.channelConfig.dt = self.env.nbSamples / self.env.T 
-        self.env.model.setChannelConfigs(self.env.channelConfig)
         self.env.channelConfig.loFregs_dChannels = [1.0]
+        self.env.model.setChannelConfigs(self.env.channelConfig)
         return xacc.getAccelerator('QuaC', {'system-model': self.env.model.name(), 'shots': 1024})
+
     
-    def one_qutrit(self):
+    def one_qutrit_backend(self):
         hamiltonianJson = {
             "description": "One-qutrit Hamiltonian.",
             "h_latex": "",
@@ -45,11 +46,11 @@ class Backends:
         self.env.loadResult = self.env.model.loadHamiltonianJson(json.dumps(hamiltonianJson))
         self.env.channelConfig = xacc.BackendChannelConfigs()
         self.env.channelConfig.dt = self.env.nbSamples / self.env.T 
-        self.env.model.setChannelConfigs(self.env.channelConfig)
         self.env.channelConfig.loFregs_dChannels = [5.0353]
+        self.env.model.setChannelConfigs(self.env.channelConfig)
         return xacc.getAccelerator('QuaC', {'system-model': self.env.model.name(), 'shots': 1024})
 
-    def two_qubit(self):
+    def two_qubit_backend(self):
         # Set control and target qubit to user-specified initial states (default |00>)
         self.env.model.setQubitInitialPopulation(self.env.initial_state[0], self.env.initial_state[1])
         self.env.channelConfig = xacc.BackendChannelConfigs()
@@ -57,5 +58,5 @@ class Backends:
         self.env.model.setChannelConfigs(self.env.channelConfig)
         return xacc.getAccelerator('QuaC:Default2Q')
 
-    def two_qutrit(self):
+    def two_qutrit_backend(self):
         pass

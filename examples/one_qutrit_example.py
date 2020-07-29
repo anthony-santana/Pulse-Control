@@ -19,6 +19,7 @@ ppo = xacc_drl.OptimalControl(
     'backend': 'one_qutrit',
     'slepian_parameters': [nbSamples, in_bW, in_K, T],
     'gate_operation': gate_operation,
+    'nbPulses': 1,
     }
 )
 

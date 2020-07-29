@@ -32,6 +32,8 @@ class OptimalControl:
         self.env.expectedDmReal = options['expectedDmReal'] if 'expectedDmReal' in options else None
         self.env.expectedDmImag = options['expectedDmImag'] if 'expectedDmImag' in options else None
         self.env.initial_state = options['initial_state'] if 'initial_state' in options else 0
+        self.env.channels = options['channels'] if 'channels' in options else 'd0'
+        self.env.nbPulses = options['nbPulses'] if 'nbPulses' in options else len(self.env.channels)
         self.env.qpt = options['qpt'] if 'qpt' in options else None
         self.env.qutrit = options['qutrit'] if 'qutrit' in options else False
         if self.env.qpt == True:
@@ -62,17 +64,17 @@ class OptimalControl:
         self.env.model = xacc.createPulseModel()
 
         if self.env.reward_name == 'one_qubit':
-            self.env.qpu = Backends.one_qubit(self)
-            self.reward_function = RewardFunctions.one_qubit
+            self.env.qpu = Backends.one_qubit_backend(self)
+            self.reward_function = RewardFunctions.one_qubit_reward
         elif self.env.reward_name == 'one_qutrit':
-            self.env.qpu = Backends.one_qutrit(self)
-            self.reward_function = RewardFunctions.one_qutrit
+            self.env.qpu = Backends.one_qutrit_backend(self)
+            self.reward_function = RewardFunctions.one_qutrit_reward
         elif self.env.reward_name == 'one_qutrit_qpt':
-            self.env.qpu = Backends.one_qutrit_qpt(self)
-            self.reward_function = RewardFunctions.one_qutrit_qpt
+            self.env.qpu = Backends.one_qutrit_qpt_backend(self)
+            self.reward_function = RewardFunctions.one_qutrit_qpt_reward
         elif self.env.reward_name == 'two_qubit':
-            self.env.qpu = Backends.two_qubit(self)
-            self.reward_function = RewardFunctions.two_qubit
+            self.env.qpu = Backends.two_qubit_backend(self)
+            self.reward_function = RewardFunctions.two_qubit_reward
         # Pass the appropriate reward function to pulsecontrol_env:
         self.env.reward_function = MethodType(self.reward_function, self.env)
     

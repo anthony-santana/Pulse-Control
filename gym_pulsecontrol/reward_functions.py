@@ -11,7 +11,7 @@ from stable_baselines import PPO2
 
 class RewardFunctions:
 
-    def one_qubit(self):
+    def one_qubit_reward(self):
 
         '''
         Single qubit reward function. Just returns the population of the first excited state. 
@@ -32,10 +32,10 @@ class RewardFunctions:
         self.qpu.execute(q, prog) 
         fidelityResult = q.computeMeasurementProbability('1')
         print("\nFidelity: {}".format(fidelityResult))
-        return  q.computeMeasurementProbability('1')
+        return q.computeMeasurementProbability('1')
+        
 
-
-    def one_qutrit(self):
+    def one_qutrit_reward(self):
 
         '''
         Single qutrit reward function without Quantum Process Tomography. 
@@ -62,7 +62,7 @@ class RewardFunctions:
         return fidelityResult
 
     
-    def one_qutrit_qpt(self):
+    def one_qutrit_qpt_reward(self):
 
         '''
         Single qutrit reward function that uses Quantum Process Tomography to calculate fidelity. 
@@ -84,7 +84,7 @@ class RewardFunctions:
         return qpt.calculate('fidelity', q, {'chi-theoretical-real': self.target_chi})
 
     
-    def two_qubit(self):
+    def two_qubit_reward(self):
 
         '''
         Two qubit reward function. Returns overlap between target density matrix 
@@ -92,15 +92,18 @@ class RewardFunctions:
         '''
 
         # Create the pulse as weighted sum of Slepian orders
-        self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
-        pulseName = 'Slepian' + str(self.index)
-        print(pulseName)
-        xacc.addPulse(pulseName, self.pulseData)   
-        provider = xacc.getIRProvider('quantum')
-        prog = provider.createComposite('pulse_composite')
-        slepianPulse = provider.createInstruction(pulseName, [0])
-        slepianPulse.setChannel('d0')
-        prog.addInstruction(slepianPulse)
+        for i in range(self.nbPulses):
+            _state = np.split(self._state, self.nbPulses)
+            self.pulseData = np.array(xacc.SlepianPulse(_state[i], self.nbSamples, self.in_bW, self.in_K))
+            pulseName = 'Slepian' + str(i)
+            # print(pulseName)
+            xacc.addPulse(pulseName, self.pulseData)   
+            provider = xacc.getIRProvider('quantum')
+            prog = provider.createComposite('pulse_composite')
+            slepianPulse = provider.createInstruction(pulseName, [0])
+            slepianPulse.setChannel(self.channels[i])
+            prog.addInstruction(slepianPulse)
+
         q = xacc.qalloc(self.nbQubits)
         q.addExtraInfo("target-dm-real", self.expectedDmReal)
         q.addExtraInfo("target-dm-imag", self.expectedDmImag)

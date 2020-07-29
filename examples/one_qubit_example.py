@@ -6,9 +6,9 @@ import numpy as np
 # Pulse Parameters:
 nbQubits = 1
 nbSamples = 512
-in_bW = 0.025
-in_K = int(2 * nbSamples * in_bW)
-T = 100
+in_bW = 0.02
+in_K = 5 #int(2 * nbSamples * in_bW)
+T = 50
 
 # Used for plot titles only:
 gate_operation = 'X-Gate'
@@ -19,6 +19,7 @@ ppo = xacc_drl.OptimalControl(
     'backend': 'one_qubit',
     'slepian_parameters': [nbSamples, in_bW, in_K, T],
     'gate_operation': gate_operation,
+    'nbPulses': 1
     }
 )
 
