@@ -95,7 +95,7 @@ class RewardFunctions:
         for i in range(self.nbPulses):
             _state = np.split(self._state, self.nbPulses)
             self.pulseData = np.array(xacc.SlepianPulse(_state[i], self.nbSamples, self.in_bW, self.in_K))
-            pulseName = 'Slepian' + str(i)
+            pulseName = 'Slepian' + str(self.index) + str(i)
             # print(pulseName)
             xacc.addPulse(pulseName, self.pulseData)   
             provider = xacc.getIRProvider('quantum')

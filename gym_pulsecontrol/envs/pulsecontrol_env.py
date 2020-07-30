@@ -36,7 +36,7 @@ class PulseEnv(gym.Env):
         # print("REWARD IS ", reward)
         print("alpha = ", self._state)
         if reward >= 0.9999:
-            self.optimal_pulse = self.pulseData.copy()
+            # self.optimal_pulse = self.pulseData.copy()
             # self.optimal_reward = reward
             # self.optimal_time = self.T
             # print(self._state)
