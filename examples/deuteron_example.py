@@ -7,8 +7,8 @@ import numpy as np
 nbQubits = 2
 nbSamples = 512
 in_bW = 0.02
-in_K = 5 #int(2 * nbSamples * in_bW)
-T = 50 + 50 + 500 # 130 + 130 + 650 
+in_K = 5 # int(2 * nbSamples * in_bW)
+T = 800 # 130 + 130 + 650 
 
 # Density Matrix for {X[q0], Ry[0.59, q1], CNOT}
 expectedDmReal = np.array([
@@ -31,8 +31,10 @@ ppo = xacc_drl.OptimalControl(
     'expectedDmImag': expectedDmImag,
     'gate_operation': gate_operation,
     'initial_state': [0, 0],
-    'channels': ['d0', 'd1'],
-    'nbPulses': 2
+    'channels': ['d0'], # , 'd1', 'u0', 'u1'],
+    'nbPulses': 1,
+    'nsteps': 2 * in_K,
+    'nminibatches': in_K
     }
 )
 

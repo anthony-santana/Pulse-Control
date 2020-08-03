@@ -45,7 +45,7 @@ class OptimalControl:
         
         # Parameters for PPO. The defaults are just the defaults from the stable_baselines backend.
         self.learning_rate = options['learning_rate'] if 'learning_rate' in options else 0.0025
-        self.nsteps = options['nsteps'] if 'nsteps' in options else 128
+        self.nsteps = options['nsteps'] if 'nsteps' in options else 8 #128
         self.gamma = options['gamma'] if 'gamma' in options else 0.99
         self.ent_coef = options['ent_coef'] if 'ent_coef' in options else 0.01
         self.vf_coef = options['vf_coef'] if 'vf_coef' in options else 0.5

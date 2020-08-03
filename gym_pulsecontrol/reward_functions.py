@@ -92,18 +92,19 @@ class RewardFunctions:
         '''
 
         # Create the pulse as weighted sum of Slepian orders
+        _state = np.split(self._state, self.nbPulses)
+        provider = xacc.getIRProvider('quantum')
+        prog = provider.createComposite('pulse_composite')
+
         for i in range(self.nbPulses):
-            _state = np.split(self._state, self.nbPulses)
             self.pulseData = np.array(xacc.SlepianPulse(_state[i], self.nbSamples, self.in_bW, self.in_K))
             pulseName = 'Slepian' + str(self.index) + str(i)
             # print(pulseName)
             xacc.addPulse(pulseName, self.pulseData)   
-            provider = xacc.getIRProvider('quantum')
-            prog = provider.createComposite('pulse_composite')
-            slepianPulse = provider.createInstruction(pulseName, [0])
+            slepianPulse = provider.createInstruction(pulseName, [i])
             slepianPulse.setChannel(self.channels[i])
             prog.addInstruction(slepianPulse)
-
+            
         q = xacc.qalloc(self.nbQubits)
         q.addExtraInfo("target-dm-real", self.expectedDmReal)
         q.addExtraInfo("target-dm-imag", self.expectedDmImag)
