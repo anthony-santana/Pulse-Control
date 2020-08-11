@@ -19,7 +19,7 @@ class RewardFunctions:
         '''
 
         self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
-        pulseName = 'Slepian' + str(self.index)
+        pulseName = 'Slepian' + str(self.counter)
         print(pulseName)
         xacc.addPulse(pulseName, self.pulseData)   
         provider = xacc.getIRProvider('quantum')
@@ -44,7 +44,7 @@ class RewardFunctions:
         '''
 
         self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
-        pulseName = 'Slepian' + str(self.index)
+        pulseName = 'Slepian' + str(self.counter)
         print(pulseName)
         xacc.addPulse(pulseName, self.pulseData)   
         provider = xacc.getIRProvider('quantum')
@@ -58,7 +58,7 @@ class RewardFunctions:
         fidelityResult = q['DensityMatrixDiags'][1]
         leakage = q['DensityMatrixDiags'][2]
         print("\nFidelity: {}".format(fidelityResult))
-        print("\nLeakgge: {}".format(leakage))
+        print("\nLeakqge: {}".format(leakage))
         return fidelityResult
 
     
@@ -70,7 +70,7 @@ class RewardFunctions:
 
         # Create the pulse as weighted sum of Slepian orders
         self.pulseData = np.array(xacc.SlepianPulse(self._state, self.nbSamples, self.in_bW, self.in_K))
-        pulseName = 'Slepian' + str(self.index)
+        pulseName = 'Slepian' + str(self.counter)
         print(pulseName)
         xacc.addPulse(pulseName, self.pulseData) 
         q = xacc.qalloc(self.nbQubits)  
@@ -98,8 +98,8 @@ class RewardFunctions:
 
         for i in range(self.nbPulses):
             self.pulseData = np.array(xacc.SlepianPulse(_state[i], self.nbSamples, self.in_bW, self.in_K))
-            pulseName = 'Slepian' + str(self.index) + str(i)
-            # print(pulseName)
+            pulseName = 'Slepian' + str(self.counter) + str(i)
+            print(pulseName)
             xacc.addPulse(pulseName, self.pulseData)   
             slepianPulse = provider.createInstruction(pulseName, [i])
             slepianPulse.setChannel(self.channels[i])

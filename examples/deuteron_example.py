@@ -5,9 +5,9 @@ import numpy as np
 
 # Pulse Parameters:
 nbQubits = 2
-nbSamples = 512
+nbSamples = 112
 in_bW = 0.02
-in_K = 5 # int(2 * nbSamples * in_bW)
+in_K = int(2 * nbSamples * in_bW)
 T = 800 # 130 + 130 + 650 
 
 # Density Matrix for {X[q0], Ry[0.59, q1], CNOT}
@@ -31,9 +31,9 @@ ppo = xacc_drl.OptimalControl(
     'expectedDmImag': expectedDmImag,
     'gate_operation': gate_operation,
     'initial_state': [0, 0],
-    'channels': ['d0'], # , 'd1', 'u0', 'u1'],
-    'nbPulses': 1,
-    'nsteps': 2 * in_K,
+    'channels': ['d0', 'd1'], # 'u0', 'u1'],
+    'nbPulses': 2,
+    'nsteps': 5 * in_K,
     'nminibatches': in_K
     }
 )

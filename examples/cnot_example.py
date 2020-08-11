@@ -5,31 +5,37 @@ import numpy as np
 
 # Pulse Parameters:
 nbQubits = 2
+nbPulses = 1
 nbSamples = 512
-in_bW = 0.025
-in_K = int(2 * nbSamples * in_bW)
-T = 600
+in_bW = 0.02
+in_K = 5 # int(2 * nbSamples * in_bW)
+T = 500
 
-# Density Matrix for {CNOT} from |00>:
+# Density Matrix for {CNOT} from |11>:
 expectedDmReal = np.array([
-    1, 0, 0, 0,
     0, 0, 0, 0,
     0, 0, 0, 0,
+    0, 0, 1, 0,
     0, 0, 0, 0
 ], dtype = np.float64)
 expectedDmImag = np.zeros(16)
 # Used for plot titles only:
-gate_operation = 'X[q0], Ry[0.59, q1], CNOT'
+gate_operation = 'CNOT'
 
 ppo = xacc_drl.OptimalControl(
     {
     'nbQubits': nbQubits,
+    'nbPulses': nbPulses,
     'backend': 'two_qubit',
     'slepian_parameters': [nbSamples, in_bW, in_K, T],
     'expectedDmReal': expectedDmReal,
     'expectedDmImag': expectedDmImag,
     'gate_operation': gate_operation,
-    'initial_state': [0, 0]
+    'initial_state': [1, 1],
+    'channels': ['d0'],
+    'nbPulses': 1,
+    'nsteps': 5 * in_K,
+    'nminibatches': in_K
     }
 )
 
