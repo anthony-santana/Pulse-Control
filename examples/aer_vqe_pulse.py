@@ -160,7 +160,7 @@ class PulseOptParams:
 
 # Query backend info (dt)
 # Aer simulator
-qpu = xacc.getAccelerator("aer:ibmq_bogota")
+qpu = xacc.getAccelerator("aer:ibmq_bogota", {"sim-type": "pulse"})
 # IBM backend
 #qpu = xacc.getAccelerator("ibm:ibmq_bogota")
 
