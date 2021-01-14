@@ -297,7 +297,7 @@ optimizer = xacc.getOptimizer('nlopt', {
     "upper-bounds": [1.0, 1.0, 1.0, 1.0],
     "maxeval": 100
 })
-result = optimizer.optimize(pulse_opt_func, 2)
+result = optimizer.optimize(pulse_opt_func, 4)
 print("Optimization Result:", result)
 
 # Trying with scipy cobyla:
