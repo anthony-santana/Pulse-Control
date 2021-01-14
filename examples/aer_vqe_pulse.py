@@ -15,6 +15,10 @@ import numpy as np
 from scipy.linalg import block_diag
 import xacc, json
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 from scipy import optimize
 
 # Pauli operators in an extended basis (e.g. qutrit)
@@ -166,7 +170,7 @@ class PulseOptParams:
         while (len(pulse_vals) % 16 != 0):
             # padding
             pulse_vals.append(0.0*1j) 
-            
+        #print(pulse_vals)    
         return pulse_vals
 
     def getHanningPulseSamples(self, qubit, dt):
@@ -181,6 +185,7 @@ class PulseOptParams:
         segment_idx = 0
         pulse_vals = []
         next_switching_time = time_windows[segment_idx]
+        i = 0
         for time in time_list:
             if time > next_switching_time:
                 # Switch to the next window
@@ -188,12 +193,16 @@ class PulseOptParams:
                 next_switching_time = next_switching_time + time_windows[
                     segment_idx]
             # Retrieve the amplitude and frequencies
-            amp = amps[segment_idx]
+            amp = amps[i]
+            # amp = amps[segment_idx]
             freq = freqs[segment_idx]
 
             pulse_val = amp * np.exp(-1j * 2.0 * np.pi * freq * time)
+            if (np.abs(pulse_val) >= 1.0):
+                pulse_val = 1.0+(0.0*1j)
             pulse_vals.append(pulse_val)
-        
+            i += 1
+    
         # Pulse length must be a multiple of 16 to be able to run on actual backend
         while (len(pulse_vals) % 16 != 0):
             # padding
@@ -204,7 +213,7 @@ class PulseOptParams:
 
 # Query backend info (dt)
 # Aer simulator
-qpu = xacc.getAccelerator("aer:ibmq_bogota", {"sim-type": "pulse"})
+qpu = xacc.getAccelerator("aer:ibmq_armonk", {"sim-type": "pulse"})
 # IBM backend
 #qpu = xacc.getAccelerator("ibm:ibmq_bogota")
 
@@ -216,11 +225,11 @@ nbQubits = config["n_qubits"]
 dt = config["dt"]
 
 # Simple test: single qubit
-ham = xacc.getObservable("pauli", "0.7071 X0 + 0.7071 Z0")
+# ham = xacc.getObservable("pauli", "0.7071 X0 + 0.7071 Z0")
+ham = xacc.getObservable("pauli", "1.0 Z0 + 1.0 X0")
 # Pulse parameter:
 # Simple: single segment, i.e. square pulse.
 pulse_opt = PulseOptParams(nb_qubits=1, nb_segments=1, total_length=100.0)
-pulse_opt.Hanning = True
 provider = xacc.getIRProvider("quantum")
 
 # Optimization function:
@@ -241,6 +250,7 @@ def pulse_opt_func(x):
     else:
         amp = x[0]
         freq = x[1]
+        pulse_opt.amplitude = [[amp]]
     pulse_opt.freqs = [[freq]]
    
     # Construct the pulse program:
@@ -262,12 +272,12 @@ def pulse_opt_func(x):
             })
     program.addInstruction(pulse_inst)
     energy = 0.0
-    
 
     if not isRemote:
         buffer = xacc.qalloc(nbQubits)
         qpu.execute(buffer, program)
         state_vec = getStateVectorFromBuffer(buffer)
+        print(state_vec)
         obs = pauli_op_to_matrix(ham, buffer.size())
         energy = calculateExpVal(state_vec, obs)
         #print(state_vec, "->", energy)
@@ -283,30 +293,38 @@ def pulse_opt_func(x):
                 coeff = op[1].coeff().real
             buffer = xacc.qalloc(1)
             qpu.execute(buffer, fs)
-            print(buffer)
             # print("Exp-Z =", buffer.getExpectationValueZ())
             energy = energy + coeff * buffer.getExpectationValueZ()
     print("Energy(", x, ") =", energy)
     return energy
+
+pulse_opt.Hanning = True
+
 # Run the optimization loop:
 # Optimizer:
 # Single segment: 1 amplitude and 1 freq
 # Make sure we don't create a pulse with amplitude > 1.0 (error)
-optimizer = xacc.getOptimizer('nlopt', {
-    "lower-bounds": [-1.0, -1.0, -1.0, -1.0],
-    "upper-bounds": [1.0, 1.0, 1.0, 1.0],
-    "maxeval": 100
-})
-result = optimizer.optimize(pulse_opt_func, 4)
-print("Optimization Result:", result)
+# optimizer = xacc.getOptimizer('nlopt', {
+#     "lower-bounds": [-1.0, -1.0, -1.0, -1.0],
+#     "upper-bounds": [1.0, 1.0, 1.0, 1.0],
+#     "maxeval": 100,
+#     "initial-parameters": [0.1,0.1,0.1,0.0],
+# })
+# optimizer = xacc.getOptimizer('nlopt', {
+#     "lower-bounds": [-1.0, -1.0],
+#     "upper-bounds": [1.0, 1.0],
+#     "maxeval": 100
+# })
+# result = optimizer.optimize(pulse_opt_func, 4)
+#print("Optimization Result:", result)
 
 # Trying with scipy cobyla:
 # Initializing each weight term to min. bound (-1.0) and phase
 # at zero
-# x0 = np.array([-1.0,-1.0,-1.0,-1.0])
-# opt = optimize.minimize(pulse_opt_func, x0, method='cobyla')
-# result = opt.x
-# print("Optimization Result:", result)
+x0 = np.array([0.1,0.1,0.1,0.0])
+opt = optimize.minimize(pulse_opt_func, x0, method='cobyla')
+result = opt.x
+print("Optimization Result:", result)
 
 # Not changing the freq., just varying the amplitude:
 # Should see a Rabi oscillation....
