@@ -8,9 +8,14 @@
 # has mismatches. Hence, the observe procedure by partial tomography (adding H, Rx, etc.)
 # doesn't work (the pulse cmd-def for H doesn't work as expected on the Aer simulator)
 
+import sys
+from pathlib import Path
+sys.path.insert(1, str(Path.home()) + '/.xacc')
 import numpy as np
 from scipy.linalg import block_diag
 import xacc, json
+
+from scipy import optimize
 
 # Pauli operators in an extended basis (e.g. qutrit)
 def s(n_qubits, dim, site, pauli):
@@ -104,9 +109,15 @@ class PulseOptParams:
         self.amplitude = []
         self.freq = []
         self.tSeg = []
+        self.totalTime = total_length
+        self.Hanning = False
         for qIdx in range(nb_qubits):
-            # Amplitude in the range of [0.0, 1.0]
-            self.amplitude.append(np.random.rand(nb_segments))
+            # Hard-coding to produce 3 randomized initial weights
+            # for Hanning construction in the range of [-1.0, 1.0]
+            if (self.Hanning == True):
+                self.amplitude.append(np.random.rand(3))
+            else:
+                self.amplitude.append(np.random.rand(nb_segments))
             # Assuming the frequency shift in the range of [-1.0, 1.0]
             self.freq.append(np.zeros(nb_segments))
             rand_segs = np.random.rand(nb_segments)
@@ -158,6 +169,39 @@ class PulseOptParams:
             
         return pulse_vals
 
+    def getHanningPulseSamples(self, qubit, dt):
+        weights = self.amplitude #[qubit]
+        freqs = self.freq[qubit]
+        time_windows = self.tSeg[qubit]
+        time_list = np.arange(0.0, np.sum(time_windows), dt)
+
+        amps = np.array(xacc.HanningPulse(weights, int(self.totalTime), len(weights), len(time_list)))
+        
+        # which time segment are we on?
+        segment_idx = 0
+        pulse_vals = []
+        next_switching_time = time_windows[segment_idx]
+        for time in time_list:
+            if time > next_switching_time:
+                # Switch to the next window
+                segment_idx = segment_idx + 1
+                next_switching_time = next_switching_time + time_windows[
+                    segment_idx]
+            # Retrieve the amplitude and frequencies
+            amp = amps[segment_idx]
+            freq = freqs[segment_idx]
+
+            pulse_val = amp * np.exp(-1j * 2.0 * np.pi * freq * time)
+            pulse_vals.append(pulse_val)
+        
+        # Pulse length must be a multiple of 16 to be able to run on actual backend
+        while (len(pulse_vals) % 16 != 0):
+            # padding
+            pulse_vals.append(0.0*1j) 
+            
+        return pulse_vals
+
+
 # Query backend info (dt)
 # Aer simulator
 qpu = xacc.getAccelerator("aer:ibmq_bogota", {"sim-type": "pulse"})
@@ -172,10 +216,11 @@ nbQubits = config["n_qubits"]
 dt = config["dt"]
 
 # Simple test: single qubit
-ham = xacc.getObservable("pauli", "1.0 Z0")
+ham = xacc.getObservable("pauli", "0.7071 X0 + 0.7071 Z0")
 # Pulse parameter:
 # Simple: single segment, i.e. square pulse.
 pulse_opt = PulseOptParams(nb_qubits=1, nb_segments=1, total_length=100.0)
+pulse_opt.Hanning = True
 provider = xacc.getIRProvider("quantum")
 
 # Optimization function:
@@ -183,23 +228,42 @@ provider = xacc.getIRProvider("quantum")
 def pulse_opt_func(x):
     # Handle both remote (ibm) and simulator (aer)
     isRemote = (qpu.name() == "ibm")
-    # This is a one-segment optimization:
-    amp = x[0]
-    freq = x[1]
-    # Update the params in the PulseOptParams
+    
+    # This indexing is throwing a bug so  I'm manually 
+    # adding all 3 weight terms individually
+    # amp = x[0:2] 
+    if (pulse_opt.Hanning == True):
+        amp = [x[0]]
+        amp.append(x[1])
+        amp.append(x[2])
+        freq = x[3]
+        pulse_opt.amplitude = amp
+    else:
+        amp = x[0]
+        freq = x[1]
     pulse_opt.freqs = [[freq]]
-    pulse_opt.amplitude = [[amp]]
+   
     # Construct the pulse program:
     program = provider.createComposite("vqe_pulse_composite")
+    # program = provider.createComposite('pulse')
     # Create the pulse instructions
     # TODO: handle multiple channels....
-    pulse_inst = provider.createInstruction(
-        "pulse", [0], [], {
-            "channel": "d0",
-            "samples": pulse_opt.getPulseSamples(0, dt)
-        })
+    if (pulse_opt.Hanning == True):
+        pulse_inst = provider.createInstruction(
+            "pulse", [0], [], {
+                "channel": "d0",
+                "samples": pulse_opt.getHanningPulseSamples(0, dt)
+            })
+    else:
+        pulse_inst = provider.createInstruction(
+            "pulse", [0], [], {
+                "channel": "d0",
+                "samples": pulse_opt.getPulseSamples(0, dt)
+            })
     program.addInstruction(pulse_inst)
     energy = 0.0
+    
+
     if not isRemote:
         buffer = xacc.qalloc(nbQubits)
         qpu.execute(buffer, program)
@@ -224,18 +288,25 @@ def pulse_opt_func(x):
             energy = energy + coeff * buffer.getExpectationValueZ()
     print("Energy(", x, ") =", energy)
     return energy
-
 # Run the optimization loop:
 # Optimizer:
 # Single segment: 1 amplitude and 1 freq
 # Make sure we don't create a pulse with amplitude > 1.0 (error)
 optimizer = xacc.getOptimizer('nlopt', {
-    "lower-bounds": [-1.0, -1.0],
-    "upper-bounds": [1.0, 1.0],
+    "lower-bounds": [-1.0, -1.0, -1.0, -1.0],
+    "upper-bounds": [1.0, 1.0, 1.0, 1.0],
     "maxeval": 100
 })
 result = optimizer.optimize(pulse_opt_func, 2)
 print("Optimization Result:", result)
+
+# Trying with scipy cobyla:
+# Initializing each weight term to min. bound (-1.0) and phase
+# at zero
+# x0 = np.array([-1.0,-1.0,-1.0,-1.0])
+# opt = optimize.minimize(pulse_opt_func, x0, method='cobyla')
+# result = opt.x
+# print("Optimization Result:", result)
 
 # Not changing the freq., just varying the amplitude:
 # Should see a Rabi oscillation....
