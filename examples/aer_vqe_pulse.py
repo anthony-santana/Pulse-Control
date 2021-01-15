@@ -20,6 +20,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from scipy import optimize
+from scipy import integrate 
 
 # Pauli operators in an extended basis (e.g. qutrit)
 def s(n_qubits, dim, site, pauli):
@@ -115,6 +116,7 @@ class PulseOptParams:
         self.tSeg = []
         self.totalTime = total_length
         self.Hanning = False
+        self.Slepian = False
         for qIdx in range(nb_qubits):
             # Hard-coding to produce 3 randomized initial weights
             # for Hanning construction in the range of [-1.0, 1.0]
@@ -180,7 +182,7 @@ class PulseOptParams:
         time_list = np.arange(0.0, np.sum(time_windows), dt)
 
         amps = np.array(xacc.HanningPulse(weights, int(self.totalTime), len(weights), len(time_list)))
-        
+        print("Area of original samples: ", integrate.simps(amps))
         # which time segment are we on?
         segment_idx = 0
         pulse_vals = []
@@ -202,7 +204,49 @@ class PulseOptParams:
                 pulse_val = 1.0+(0.0*1j)
             pulse_vals.append(pulse_val)
             i += 1
-    
+        print("Area of final pulse: ", integrate.simps(np.array(pulse_vals)))
+        # Pulse length must be a multiple of 16 to be able to run on actual backend
+        while (len(pulse_vals) % 16 != 0):
+            # padding
+            pulse_vals.append(0.0*1j) 
+            
+        return pulse_vals
+
+    def getSlepianPulseSamples(self, qubit, dt):
+        weights = self.amplitude #[qubit]
+        freqs = self.freq[qubit]
+        time_windows = self.tSeg[qubit]
+        time_list = np.arange(0.0, np.sum(time_windows), dt)
+
+        amps = np.array(xacc.SlepianPulse(weights, len(time_list), 0.25, len(weights)))
+        print("Max. sample amplitude: ", np.max(amps))
+        print("Area of original samples: ", integrate.simps(amps))
+        # which time segment are we on?
+        segment_idx = 0
+        pulse_vals = []
+        next_switching_time = time_windows[segment_idx]
+        i = 0
+        for time in time_list:
+            if time > next_switching_time:
+                # Switch to the next window
+                segment_idx = segment_idx + 1
+                next_switching_time = next_switching_time + time_windows[
+                    segment_idx]
+            # Retrieve the amplitude and frequencies
+            amp = amps[i]
+            # amp = amps[segment_idx]
+            freq = freqs[segment_idx]
+
+            pulse_val = amp * np.exp(-1j * 2.0 * np.pi * freq * time)
+            if (np.abs(pulse_val) >= 1.0):
+                pulse_val = 1.0+(0.0*1j)
+            pulse_vals.append(pulse_val)
+            i += 1
+        print("Area of final pulse: ", integrate.simps(np.array(pulse_vals)))
+        
+        plt.plot(np.real(np.array(pulse_vals)))
+        plt.savefig('/home/cades/xacc_dev/Pulse-Control/examples/slepian_test.png')
+
         # Pulse length must be a multiple of 16 to be able to run on actual backend
         while (len(pulse_vals) % 16 != 0):
             # padding
@@ -229,7 +273,7 @@ dt = config["dt"]
 ham = xacc.getObservable("pauli", "1.0 Z0 + 1.0 X0")
 # Pulse parameter:
 # Simple: single segment, i.e. square pulse.
-pulse_opt = PulseOptParams(nb_qubits=1, nb_segments=1, total_length=100.0)
+pulse_opt = PulseOptParams(nb_qubits=1, nb_segments=2, total_length=100.0)
 provider = xacc.getIRProvider("quantum")
 
 # Optimization function:
@@ -242,6 +286,12 @@ def pulse_opt_func(x):
     # adding all 3 weight terms individually
     # amp = x[0:2] 
     if (pulse_opt.Hanning == True):
+        amp = [x[0]]
+        amp.append(x[1])
+        amp.append(x[2])
+        freq = x[3]
+        pulse_opt.amplitude = amp
+    elif (pulse_opt.Slepian == True):
         amp = [x[0]]
         amp.append(x[1])
         amp.append(x[2])
@@ -264,6 +314,12 @@ def pulse_opt_func(x):
                 "channel": "d0",
                 "samples": pulse_opt.getHanningPulseSamples(0, dt)
             })
+    elif (pulse_opt.Slepian == True):
+        pulse_inst = provider.createInstruction(
+            "pulse", [0], [], {
+                "channel": "d0",
+                "samples": pulse_opt.getSlepianPulseSamples(0, dt)
+            })
     else:
         pulse_inst = provider.createInstruction(
             "pulse", [0], [], {
@@ -277,7 +333,7 @@ def pulse_opt_func(x):
         buffer = xacc.qalloc(nbQubits)
         qpu.execute(buffer, program)
         state_vec = getStateVectorFromBuffer(buffer)
-        print(state_vec)
+        # print(state_vec)
         obs = pauli_op_to_matrix(ham, buffer.size())
         energy = calculateExpVal(state_vec, obs)
         #print(state_vec, "->", energy)
@@ -298,7 +354,8 @@ def pulse_opt_func(x):
     print("Energy(", x, ") =", energy)
     return energy
 
-pulse_opt.Hanning = True
+# pulse_opt.Hanning = True
+pulse_opt.Slepian = True 
 
 # Run the optimization loop:
 # Optimizer:
