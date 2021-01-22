@@ -271,6 +271,11 @@ backend_properties = qpu.getProperties()
 config = json.loads(backend_properties["config-json"])
 # Number of qubits of the backend
 nbQubits = config["n_qubits"]
+ham_vars = config['hamiltonian']['vars']
+for i in range(nbQubits):
+    if ham_vars["delta" + str(i)] == 0:
+        raise Exception('Zero anharmonicity detected.')
+
 # Sampling time (dt)
 dt = config["dt"]
 
