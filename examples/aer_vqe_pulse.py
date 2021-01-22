@@ -117,6 +117,7 @@ class PulseOptParams:
         self.totalTime = total_length
         self.Hanning = False
         self.Slepian = False
+        self.bandwidth = []
         for qIdx in range(nb_qubits):
             # Hard-coding to produce 3 randomized initial weights
             # for Hanning construction in the range of [-1.0, 1.0]
@@ -216,11 +217,13 @@ class PulseOptParams:
         weights = self.amplitude #[qubit]
         freqs = self.freq[qubit]
         time_windows = self.tSeg[qubit]
+        print("Time windows:", len(time_windows))
+        bW = self.bandwidth
         time_list = np.arange(0.0, np.sum(time_windows), dt)
 
-        amps = np.array(xacc.SlepianPulse(weights, len(time_list), 0.25, len(weights)))
-        print("Max. sample amplitude: ", np.max(amps))
-        print("Area of original samples: ", integrate.simps(amps))
+        amps = np.array(xacc.SlepianPulse(weights, len(time_list), bW, len(weights)))
+        print("Area of original samples: ", (amps * dt).sum())
+
         # which time segment are we on?
         segment_idx = 0
         pulse_vals = []
@@ -230,22 +233,25 @@ class PulseOptParams:
             if time > next_switching_time:
                 # Switch to the next window
                 segment_idx = segment_idx + 1
+                # ISSUES MAYBE COMING FROM THE INDEXING ON THIS LINE?
                 next_switching_time = next_switching_time + time_windows[
                     segment_idx]
             # Retrieve the amplitude and frequencies
             amp = amps[i]
             # amp = amps[segment_idx]
-            freq = freqs[segment_idx]
+            # freq = freqs[segment_idx]
+
+            freq = 0
 
             pulse_val = amp * np.exp(-1j * 2.0 * np.pi * freq * time)
             if (np.abs(pulse_val) >= 1.0):
                 pulse_val = 1.0+(0.0*1j)
             pulse_vals.append(pulse_val)
             i += 1
-        print("Area of final pulse: ", integrate.simps(np.array(pulse_vals)))
+        print("Area of final pulse: ", (np.array(pulse_vals) * dt).sum())
         
-        plt.plot(np.real(np.array(pulse_vals)))
-        plt.savefig('/home/cades/xacc_dev/Pulse-Control/examples/slepian_test.png')
+        # plt.plot(np.real(np.array(pulse_vals)))
+        # plt.savefig('/home/cades/xacc_dev/Pulse-Control/examples/slepian_test.png')
 
         # Pulse length must be a multiple of 16 to be able to run on actual backend
         while (len(pulse_vals) % 16 != 0):
@@ -270,10 +276,10 @@ dt = config["dt"]
 
 # Simple test: single qubit
 # ham = xacc.getObservable("pauli", "0.7071 X0 + 0.7071 Z0")
-ham = xacc.getObservable("pauli", "1.0 Z0 + 1.0 X0")
+ham = xacc.getObservable("pauli", "1.0 Z0")
 # Pulse parameter:
 # Simple: single segment, i.e. square pulse.
-pulse_opt = PulseOptParams(nb_qubits=1, nb_segments=2, total_length=100.0)
+pulse_opt = PulseOptParams(nb_qubits=1, nb_segments=1, total_length=50.0)
 provider = xacc.getIRProvider("quantum")
 
 # Optimization function:
@@ -295,8 +301,10 @@ def pulse_opt_func(x):
         amp = [x[0]]
         amp.append(x[1])
         amp.append(x[2])
-        freq = x[3]
+        bW = x[3]
+        freq = x[4]
         pulse_opt.amplitude = amp
+        pulse_opt.bandwidth = bW
     else:
         amp = x[0]
         freq = x[1]
@@ -352,6 +360,9 @@ def pulse_opt_func(x):
             # print("Exp-Z =", buffer.getExpectationValueZ())
             energy = energy + coeff * buffer.getExpectationValueZ()
     print("Energy(", x, ") =", energy)
+   
+    # compute probabilities in 2 level approximation with RWA
+    #   print(np.abs(expm(-1j * A * omegad0 * X / 2) @ np.array([1., 0]))**2)
     return energy
 
 # pulse_opt.Hanning = True
@@ -361,27 +372,27 @@ pulse_opt.Slepian = True
 # Optimizer:
 # Single segment: 1 amplitude and 1 freq
 # Make sure we don't create a pulse with amplitude > 1.0 (error)
-# optimizer = xacc.getOptimizer('nlopt', {
-#     "lower-bounds": [-1.0, -1.0, -1.0, -1.0],
-#     "upper-bounds": [1.0, 1.0, 1.0, 1.0],
-#     "maxeval": 100,
-#     "initial-parameters": [0.1,0.1,0.1,0.0],
-# })
+optimizer = xacc.getOptimizer('nlopt', {
+    "lower-bounds": [-1.0, -1.0, -1.0, 0.025, -1.0],
+    "upper-bounds": [1.0, 1.0, 1.0, 0.45, 1.0],
+    "maxeval": 100,
+    "initial-parameters": [-1.0,-1.0,-1.0,0.025,0.0],
+})
 # optimizer = xacc.getOptimizer('nlopt', {
 #     "lower-bounds": [-1.0, -1.0],
 #     "upper-bounds": [1.0, 1.0],
 #     "maxeval": 100
 # })
-# result = optimizer.optimize(pulse_opt_func, 4)
-#print("Optimization Result:", result)
+result = optimizer.optimize(pulse_opt_func, 5)
+print("Optimization Result:", result)
 
 # Trying with scipy cobyla:
 # Initializing each weight term to min. bound (-1.0) and phase
 # at zero
-x0 = np.array([0.1,0.1,0.1,0.0])
-opt = optimize.minimize(pulse_opt_func, x0, method='cobyla')
-result = opt.x
-print("Optimization Result:", result)
+# x0 = np.array([0.1,0.1,0.1,0.0])
+# opt = optimize.minimize(pulse_opt_func, x0, method='cobyla')
+# result = opt.x
+# print("Optimization Result:", result)
 
 # Not changing the freq., just varying the amplitude:
 # Should see a Rabi oscillation....
