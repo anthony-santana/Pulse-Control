@@ -278,6 +278,10 @@ ham_vars = config['hamiltonian']['vars']
 for i in range(nbQubits):
     if ham_vars["delta" + str(i)] == 0:
         raise Exception('Zero anharmonicity detected.')
+<<<<<<< HEAD
+=======
+
+>>>>>>> c68576d7cb29ca2ed3d72390102066206cff382d
 # Sampling time (dt)
 dt = config["dt"]
 #print("line 277:", config)
