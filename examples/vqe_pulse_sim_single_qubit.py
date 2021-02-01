@@ -1,6 +1,8 @@
 ## IMPORTANT: need to copy the helper functions in examples/aer_vqe_pulse.py
 ## (to compute the expectation value from the qutrit state vector)
-
+import sys
+from pathlib import Path
+sys.path.insert(1, str(Path.home()) + '/.xacc')
 import xacc, json, numpy as np
 from scipy.linalg import block_diag
 # Pauli operators in an extended basis (e.g. qutrit)
